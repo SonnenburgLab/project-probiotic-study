@@ -1,0 +1,2029 @@
+---
+title: "16s_probiotic_ASVs"
+author: "HCW"
+date: "2/15/2019"
+output: html_document
+---
+
+```{r include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(phyloseq)
+library(dada2)
+#library(microbiome)
+```
+
+Import the full phyloseq object for raw sequence tables (OTU tables)
+```{r}
+save_figure_path <- "~/R/Project_Probiotic/CLEAN_CODE/plots/"
+
+ps_tree <- readRDS(file="~/user_data/ProbioticStudy_16S/saved_rds/phyloseq_obj_tree_ProbioticStudy_ppt.rds")
+ps_tree_rare <- readRDS(file="~/user_data/ProbioticStudy_16S/saved_rds/phyloseq_obj_ProbioticStudy_rare.rds")
+seq_table <- ps_tree@otu_table %>% data.frame() %>% t() #columns are ASVs, rows are samples (SampleIDs)
+sample_table <- ps_tree@sam_data %>% data.frame()
+taxa_table <- ps_tree@tax_table %>% data.frame()
+
+ps_tree_supp <- readRDS(file="~/user_data/ProbioticStudy_16S/saved_rds/phyloseq_obj_tree_ProbioticStudy_probSupp.rds")
+seq_table_supp <- ps_tree_supp@otu_table %>% data.frame %>% t()
+seq_table_supp <- seq_table_supp[,colSums(seq_table_supp) > 400]
+tax_table_supp <- taxa_table %>% 
+  mutate(ASV=row.names(.)) %>% 
+  filter(ASV %in% colnames(seq_table_supp)) 
+# write.csv(seq_table,"~/R/Project_Probiotic/phyloseq_object_tables/seq_table.csv")
+# write.csv(sample_table,"~/R/Project_Probiotic/phyloseq_object_tables/sample_table.csv")
+# write.csv(taxa_table,"~/R/Project_Probiotic/phyloseq_object_tables/taxa_table.csv")
+
+#NOTE: PPT 7003 AND 7032 LOST TO FOLLOWUP
+ppt_labels <- readRDS(file="~/user_data/ProbioticStudy_16S/saved_rds/Probiotic_labels.rds") %>% 
+  left_join(.,select(sample_table,SampleID,real_sampleID)) %>% 
+  filter(! Participant %in% c(7003,7032))
+diversity_all <- readRDS(file = "~/user_data/ProbioticStudy_16S/saved_rds/samdf_diversity.rds") %>% 
+  right_join(select(ppt_labels,SampleID,real_sampleID,Participant,Timepoint,treatment_type),.) %>% 
+  mutate(Timepoint=factor(Timepoint,levels=c(1,2,3,4,5,6,7,8,9,10)),ordered=TRUE) %>% 
+  na.omit %>% 
+  filter(! Participant %in% c(7003,7032))
+#saveRDS(diversity_all,"~/R/Project_Probiotic/CLEAN_CODE/rds_obj/diversity_all.rds")
+#saveRDS(ppt_labels,"~/R/Project_Probiotic/CLEAN_CODE/rds_obj/ppt_labels.rds")
+
+# prob_responders <- c(7027,7046,7006,7002,7031,7001,7018,7019,7050,7012,7009,7017,7023,7015,7047,7026,7005)
+prob_responders <- c(7041,7006,7027,7047,7002,7001,7050,7018,7009,7012,7015,7023,7005,7017) #with tp 1,2,3,7,8
+
+ppt_labels_resp <- ppt_labels %>% 
+  mutate(Prob_resp=ifelse(treatment_type=="Placebo","Placebo",
+                          ifelse(Participant %in% prob_responders,"Responder","Non_responder")))
+```
+
+Look at proportion of strains in the supplement
+```{r}
+seq_table_supp_sum <- seq_table_supp %>% 
+  as.data.frame %>% 
+  gather(key=ASV,value=counts) %>% 
+  group_by(ASV) %>% 
+  dplyr::summarize(counts_replicates=sum(counts)) %>% 
+  right_join(tax_table_supp,.) %>% 
+  mutate(rel_ab=counts_replicates/sum(.$counts_replicates))
+#ran ASVs through blast for taxa assignment
+```
+
+
+Plot diversity over time for each group
+```{r}
+diversity_all_gather <- diversity_all %>% 
+  gather(key=div_measurement,value=div_value,Observed,Shannon,PD) 
+
+ggplot(diversity_all_gather,aes(x=Timepoint,y=div_value,fill=treatment_type))+
+  geom_boxplot()+
+  facet_wrap(~div_measurement,scale="free")+
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7,8,9,10),labels=c("-4","-2","0","2", "4","6", "8","10","12","14"),name="Time (weeks)")+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  theme(text = element_text(size=16))
+
+#ggsave(paste(save_figure_path,"alpha_div_all.pdf"),width=18.2,height = 9.35)
+
+diversity_all_gather_diff <- diversity_all_gather %>% 
+  filter(Timepoint==1) %>% 
+  dplyr::rename(div_value_tp1=div_value) %>% 
+  na.omit() %>%  
+  select(-SampleID,-real_sampleID,-Timepoint) %>% 
+  left_join(.,diversity_all_gather) %>% 
+  select(Participant,treatment_type,Timepoint,div_measurement, div_value_tp1,div_value) %>% 
+  mutate(div_value_diff_base=div_value-div_value_tp1)
+
+ggplot(filter(diversity_all_gather_diff,Timepoint != 1),aes(x=Timepoint,y=div_value_diff_base,fill=treatment_type))+
+  geom_boxplot()+
+  facet_wrap(~div_measurement,scale="free")+
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7,8,9,10),labels=c("-4","-2","0","2", "4","6", "8","10","12","14"),name="Time (weeks)")+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  theme(text = element_text(size=16))+
+  geom_hline(yintercept = 0)
+
+wilcox.test(filter(diversity_all_gather_diff,treatment_type=="Probiotic" & Timepoint ==10)$div_value_diff_base,
+            filter(diversity_all_gather_diff,treatment_type=="Placebo" & Timepoint ==10)$div_value_diff_base)
+```
+
+Calculate sig changes in alpha diversity
+```{r}
+#chunk the timepoints into baseline, early intervention, late intervention, washout
+diversity_all_gather <- diversity_all %>%
+  gather(key=alpha_div_type,value=alpha_div_value,Observed,Shannon, PD)
+diversity_timpeoint_chunks <- diversity_all_gather %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(1,2,3),"Baseline",
+                                ifelse(Timepoint %in% c(4,5,6),"Early_int",
+                                       ifelse(Timepoint %in% c(7,8),"Late_int",
+                                              "Washout")))) %>% 
+  select(Participant,treatment_type,Timepoint,Timepoint_label,alpha_div_type,alpha_div_value) %>% 
+  group_by(Participant,treatment_type,Timepoint_label,alpha_div_type) %>% 
+  dplyr::summarize(avg_value=mean(alpha_div_value,na.rm=TRUE)) %>% 
+  # mutate(Timepoint_label=factor(.$Timepoint_label,c("Baseline","Early_int","Late_int","Washout"))) %>% 
+  na.omit
+
+ggplot(diversity_timpeoint_chunks,aes(x=Timepoint_label,y=avg_value,fill=treatment_type))+
+  geom_boxplot()+
+  facet_wrap(~alpha_div_type,scales="free")+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))
+
+diversity_timpeoint_chunks_obs <- diversity_timpeoint_chunks %>% 
+  filter(alpha_div_type=="Observed") %>% 
+  spread(key=Timepoint_label,value=avg_value)
+ggplot(filter(diversity_timpeoint_chunks,alpha_div_type=="Observed"),aes(x=Timepoint_label,y=avg_value,fill=treatment_type))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  facet_wrap(~treatment_type)+
+  theme(text = element_text(size=18))+
+  ylab("Participant specific Average Observed ASVs")+
+  xlab("Study Timepoint Bin")
+ggsave(paste(save_figure_path,"alpha_div_binned_obs.pdf"),width=11.2,height = 7.1)
+
+wilcox.test(filter(diversity_timpeoint_chunks_obs,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_obs,treatment_type=="Probiotic")$Early_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_obs,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_obs,treatment_type=="Probiotic")$Late_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_obs,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_obs,treatment_type=="Probiotic")$Washout,paired=T,na.action=na.omit)
+
+wilcox.test(filter(diversity_timpeoint_chunks_obs,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_obs,treatment_type=="Placebo")$Early_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_obs,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_obs,treatment_type=="Placebo")$Late_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_obs,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_obs,treatment_type=="Placebo")$Washout,paired=T,na.action=na.omit)
+
+#shannon
+diversity_timpeoint_chunks_shannon <- diversity_timpeoint_chunks %>% 
+  filter(alpha_div_type=="Shannon") %>% 
+  spread(key=Timepoint_label,value=avg_value)
+wilcox.test(filter(diversity_timpeoint_chunks_shannon,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_shannon,treatment_type=="Probiotic")$Early_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_shannon,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_shannon,treatment_type=="Probiotic")$Late_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_shannon,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_shannon,treatment_type=="Probiotic")$Washout,paired=T,na.action=na.omit)
+
+wilcox.test(filter(diversity_timpeoint_chunks_shannon,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_shannon,treatment_type=="Placebo")$Early_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_shannon,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_shannon,treatment_type=="Placebo")$Late_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_shannon,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_shannon,treatment_type=="Placebo")$Washout,paired=T,na.action=na.omit)
+
+#PD_whole tree
+diversity_timpeoint_chunks_pd <- diversity_timpeoint_chunks %>% 
+  filter(alpha_div_type=="PD") %>% 
+  spread(key=Timepoint_label,value=avg_value)
+wilcox.test(filter(diversity_timpeoint_chunks_pd,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_pd,treatment_type=="Probiotic")$Early_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_pd,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_pd,treatment_type=="Probiotic")$Late_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_pd,treatment_type=="Probiotic")$Baseline,filter(diversity_timpeoint_chunks_pd,treatment_type=="Probiotic")$Washout,paired=T,na.action=na.omit)
+
+wilcox.test(filter(diversity_timpeoint_chunks_pd,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_pd,treatment_type=="Placebo")$Early_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_pd,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_pd,treatment_type=="Placebo")$Late_int,paired=T,na.action=na.omit)
+wilcox.test(filter(diversity_timpeoint_chunks_pd,treatment_type=="Placebo")$Baseline,filter(diversity_timpeoint_chunks_pd,treatment_type=="Placebo")$Washout,paired=T,na.action=na.omit)
+```
+
+Distance from timepoint 3 (last baseline timepoint as per clinical trial secondary outcome)
+```{r}
+set.seed(2)
+#probiotic resp vs. placebo
+ppt_labels_all <- ppt_labels_resp %>%
+  filter(! Participant %in% c(7003,7032,7008)) 
+  na.omit
+ps_all <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_all$SampleID)
+pseq.rel_all <- microbiome::transform(ps_all, "compositional")
+otu_all <- microbiome::abundances(pseq.rel_all)
+meta_all <- microbiome::meta(pseq.rel_all) %>% 
+  left_join(.,ppt_labels_all)
+meta_all_clean <- meta_all %>% 
+  select(SampleID, Participant,Timepoint,treatment_type,Prob_resp) %>% 
+  dplyr::rename(prob_response=Prob_resp)
+#distance matrix
+dis_all <- vegdist(t(otu_all),method="bray") %>% as.matrix %>% as.data.frame %>% 
+  mutate(SampleID_row=row.names(.)) %>% 
+  gather(key=SampleID_col,value=dist,-SampleID_row) %>% 
+  left_join(.,meta_all_clean,by = c("SampleID_row" = "SampleID")) %>% 
+  dplyr::rename(row_ppt=Participant,row_tp=Timepoint,row_tt=treatment_type,row_pr=prob_response) %>% 
+  left_join(.,meta_all_clean,by = c("SampleID_col" = "SampleID")) %>% 
+  dplyr::rename(col_ppt=Participant,col_tp=Timepoint,col_tt=treatment_type,col_pr=prob_response) %>% 
+  filter(SampleID_col!=SampleID_row)
+
+#keep timepoint 1 as the rows
+dis_all_from_one <- dis_all %>% 
+  filter(row_ppt==col_ppt & row_tp==3) %>% 
+  mutate(Timepoint=factor(col_tp,levels = c(1:10),ordered = TRUE),
+         col_tp=as.integer(col_tp),
+         row_pr=factor(row_pr,levels=c("Placebo","Non_responder","Responder",ordered=TRUE))) 
+ggplot(dis_all_from_one,aes(x=Timepoint,y=dist,fill=row_tt))+
+  geom_boxplot()+
+  # facet_wrap(~row_tt)+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85","thistle4"))+
+  ylab("Bray Curtis Distance from Week 0")+
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7,8,9,10),labels=c("-4","-2","0","2", "4","6", "8","10","12","14"),name="Time (weeks)")+
+  theme(text = element_text(size=18))
+#ggsave(paste(save_figure_path,"bray_dist_from_wk0.pdf"),width=10,height = 5.4)
+ggplot(filter(dis_all_from_one,Timepoint==8),aes(x=row_pr,y=dist,fill=row_pr))+
+  geom_boxplot()+
+  # facet_wrap(~row_tt)+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85","#b2182b","#2166ac"))+
+  ylab("Bray Curtis Distance from Week 0")+
+  theme(text = element_text(size=18))
+#ggsave(paste(save_figure_path,"bray_dist_from_wk0_wk10Only.pdf"),width=6.5,height = 5.4)
+
+#ttest unpaired 
+t.test(filter(dis_all_from_one,Timepoint==8 & row_pr=="Responder")$dist,filter(dis_all_from_one,Timepoint==8 & row_pr=="Placebo")$dist)
+t.test(filter(dis_all_from_one,Timepoint==8 & row_pr=="Non_responder")$dist,filter(dis_all_from_one,Timepoint==8 & row_pr=="Placebo")$dist)
+# dist_from_1_LME <-lme(dist~col_tp+row_tt,data=dis_all_from_one,random=~1|row_ppt)
+# summary(dist_from_1_LME)$tTable
+# 
+# dist_from_1_prob_LME <-lme(dist~col_tp,data=filter(dis_all_from_one,row_tt=="Probiotic"),random=~1|row_ppt)
+# summary(dist_from_1_prob_LME)$tTable
+# 
+# dist_from_1_plac_LME <-lme(dist~col_tp,data=filter(dis_all_from_one,row_tt=="Placebo"),random=~1|row_ppt)
+# summary(dist_from_1_plac_LME)$tTable
+# 
+# dist_from_1_probRNR_LME <-lme(dist~col_tp+row_pr,data=dis_all_from_one,random=~1|row_ppt)
+# summary(dist_from_1_probRNR_LME)$tTable
+```
+Compare unpaired t-test for distance from Baseline Tp3 and Late Intervention Tp8, Placebo vs. Probiotic for every distance metric
+```{r}
+dist_methods <- c("wunifrac","unifrac","bray","jaccard","euclidean")
+set.seed(2)
+#probiotic resp vs. placebo
+ppt_labels_all <- ppt_labels_resp %>%
+  filter(! Participant %in% c(7003,7032,7008)) %>% 
+  na.omit
+ps_all <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_all$SampleID)
+pseq.rel_all <- microbiome::transform(ps_all, "compositional")
+otu_all <- microbiome::abundances(pseq.rel_all)
+meta_all <- microbiome::meta(pseq.rel_all) %>% 
+  left_join(.,ppt_labels_all)
+meta_all_clean <- meta_all %>% 
+  select(SampleID, Participant,Timepoint,treatment_type,Prob_resp) %>% 
+  dplyr::rename(prob_response=Prob_resp)
+
+dist_from_base_prob_plac <- data.frame(dist_method=c(),Timepoint=c(),pvalue=c())
+for(i in dist_methods){
+  # i=dist_methods[1]
+  #distance matrix as a gathered df
+  dis_all <- phyloseq::distance(pseq.rel_all, method = i) %>% as.matrix %>% as.data.frame %>% 
+    mutate(SampleID_row=row.names(.)) %>% 
+    gather(key=SampleID_col,value=dist,-SampleID_row) %>% 
+    left_join(.,meta_all_clean,by = c("SampleID_row" = "SampleID")) %>% 
+    dplyr::rename(row_ppt=Participant,row_tp=Timepoint,row_tt=treatment_type,row_pr=prob_response) %>% 
+    left_join(.,meta_all_clean,by = c("SampleID_col" = "SampleID")) %>% 
+    dplyr::rename(col_ppt=Participant,col_tp=Timepoint,col_tt=treatment_type,col_pr=prob_response) %>% 
+    filter(SampleID_col!=SampleID_row)
+  
+  #keep distance from tp3 for each participant (internal to participant)
+  dis_all_from_base <- dis_all %>% 
+  filter(row_ppt==col_ppt & row_tp==3) %>% 
+  mutate(Timepoint=factor(col_tp,levels = c(1:10),ordered = TRUE),
+         col_tp=as.integer(col_tp)) 
+  ttest_pvalue=c()
+  #calculate unpaired t-test for distance from tp3 for all timepoints 
+  for(j in c(1,2,4:10)){
+    # j=8
+    dis_from_base_probiotic <- dis_all_from_base %>% 
+      filter(row_tt=="Probiotic" & Timepoint==j)
+    dis_from_base_placebo <- dis_all_from_base %>% 
+      filter(row_tt=="Placebo" & Timepoint==j)
+    pvalue <- t.test(dis_from_base_probiotic$dist,dis_from_base_placebo$dist,paired=FALSE)$p.value
+    ttest_pvalue=c(ttest_pvalue,pvalue)
+  }
+  df_temp=data.frame(dist_method=i,
+                     Timepoint= c(1,2,4:10),
+                     pvalue=ttest_pvalue)
+  dist_from_base_prob_plac <- bind_rows(dist_from_base_prob_plac,df_temp)
+}
+dist_from_base_prob_plac <- dist_from_base_prob_plac %>% 
+  spread(key=Timepoint,value=pvalue)
+
+#Probiotic R vs. Placebo
+dist_from_base_probR_placebo <- data.frame(dist_method=c(),Timepoint=c(),pvalue=c())
+for(i in dist_methods){
+  # i=dist_methods[1]
+  #distance matrix as a gathered df
+  dis_all <- phyloseq::distance(pseq.rel_all, method = i) %>% as.matrix %>% as.data.frame %>% 
+    mutate(SampleID_row=row.names(.)) %>% 
+    gather(key=SampleID_col,value=dist,-SampleID_row) %>% 
+    left_join(.,meta_all_clean,by = c("SampleID_row" = "SampleID")) %>% 
+    dplyr::rename(row_ppt=Participant,row_tp=Timepoint,row_tt=treatment_type,row_pr=prob_response) %>% 
+    left_join(.,meta_all_clean,by = c("SampleID_col" = "SampleID")) %>% 
+    dplyr::rename(col_ppt=Participant,col_tp=Timepoint,col_tt=treatment_type,col_pr=prob_response) %>% 
+    filter(SampleID_col!=SampleID_row)
+  
+  #keep distance from tp3 for each participant (internal to participant)
+  dis_all_from_base <- dis_all %>% 
+  filter(row_ppt==col_ppt & row_tp==3) %>% 
+  mutate(Timepoint=factor(col_tp,levels = c(1:10),ordered = TRUE),
+         col_tp=as.integer(col_tp)) 
+  ttest_pvalue=c()
+  #calculate unpaired t-test for distance from tp3 for all timepoints 
+  for(j in c(1,2,4:10)){
+    # j=8
+    dis_from_base_probiotic <- dis_all_from_base %>% 
+      filter(row_pr=="Responder" & Timepoint==j)
+    dis_from_base_placebo <- dis_all_from_base %>% 
+      filter(row_pr=="Placebo" & Timepoint==j)
+    pvalue <- t.test(dis_from_base_probiotic$dist,dis_from_base_placebo$dist,paired=FALSE)$p.value
+    ttest_pvalue=c(ttest_pvalue,pvalue)
+  }
+  df_temp=data.frame(dist_method=i,
+                     Timepoint= c(1,2,4:10),
+                     pvalue=ttest_pvalue)
+  dist_from_base_probR_placebo <- bind_rows(dist_from_base_probR_placebo,df_temp)
+}
+dist_from_base_probR_placebo <- dist_from_base_probR_placebo %>% 
+  spread(key=Timepoint,value=pvalue)
+
+#Probiotic NR vs. Placebo
+dist_from_base_probNR_placebo <- data.frame(dist_method=c(),Timepoint=c(),pvalue=c())
+for(i in dist_methods){
+  # i=dist_methods[1]
+  #distance matrix as a gathered df
+  dis_all <- phyloseq::distance(pseq.rel_all, method = i) %>% as.matrix %>% as.data.frame %>% 
+    mutate(SampleID_row=row.names(.)) %>% 
+    gather(key=SampleID_col,value=dist,-SampleID_row) %>% 
+    left_join(.,meta_all_clean,by = c("SampleID_row" = "SampleID")) %>% 
+    dplyr::rename(row_ppt=Participant,row_tp=Timepoint,row_tt=treatment_type,row_pr=prob_response) %>% 
+    left_join(.,meta_all_clean,by = c("SampleID_col" = "SampleID")) %>% 
+    dplyr::rename(col_ppt=Participant,col_tp=Timepoint,col_tt=treatment_type,col_pr=prob_response) %>% 
+    filter(SampleID_col!=SampleID_row)
+  
+  #keep distance from tp3 for each participant (internal to participant)
+  dis_all_from_base <- dis_all %>% 
+  filter(row_ppt==col_ppt & row_tp==3) %>% 
+  mutate(Timepoint=factor(col_tp,levels = c(1:10),ordered = TRUE),
+         col_tp=as.integer(col_tp)) 
+  ttest_pvalue=c()
+  #calculate unpaired t-test for distance from tp3 for all timepoints 
+  for(j in c(1,2,4:10)){
+    # j=8
+    dis_from_base_probiotic <- dis_all_from_base %>% 
+      filter(row_pr=="Non_responder" & Timepoint==j)
+    dis_from_base_placebo <- dis_all_from_base %>% 
+      filter(row_pr=="Placebo" & Timepoint==j)
+    pvalue <- t.test(dis_from_base_probiotic$dist,dis_from_base_placebo$dist,paired=FALSE)$p.value
+    ttest_pvalue=c(ttest_pvalue,pvalue)
+  }
+  df_temp=data.frame(dist_method=i,
+                     Timepoint= c(1,2,4:10),
+                     pvalue=ttest_pvalue)
+  dist_from_base_probNR_placebo <- bind_rows(dist_from_base_probNR_placebo,df_temp)
+}
+dist_from_base_probNR_placebo <- dist_from_base_probNR_placebo %>% 
+  spread(key=Timepoint,value=pvalue)
+```
+
+Okay now look at indivdual ASV changes from baseline to maint
+```{r}
+set.seed(2)
+#probiotic resp vs. placebo
+ppt_labels_tp8 <- ppt_labels_resp %>% 
+  filter(Timepoint==8 & ! Participant %in% c(7003,7032,7008)) #%>% 
+  # filter(Prob_resp %in% c("Placebo","Responder"))
+
+ps_filter_tp8 <- ps_tree %>% 
+  subset_samples(SampleID %in% ppt_labels_tp8$SampleID) %>% 
+  microbiome::transform(transform = "compositional") #%>% 
+  # filter_taxa(function(X){sum(X>0)>0.10*length(X)}, TRUE) #filter to only ASVs in at least 10% of samples
+meta_tp8 <- microbiome::meta(ps_filter_tp8) %>% 
+  right_join(.,ppt_labels_tp8) 
+dist.uf_tp8 <- phyloseq::distance(ps_filter_tp8, method = "bray")
+ps.adonis <- adonis2(dist.uf_tp8 ~ Prob_resp, data = meta_tp8, perm=9999)
+as.data.frame(ps.adonis$aov.tab)["Prob_resp", "Pr(>F)"]
+
+mod_tp8 <- betadisper(dist.uf_tp8, meta_tp8$Prob_resp)
+betadisper_tp8_df <- data.frame(Participant=meta_tp8$Participant,
+                            treatment_type=meta_tp8$treatment_type,
+                            Prob_resp=meta_tp8$Prob_resp,
+                            dist_cent=mod_tp8[["distances"]],
+                            mod_tp8[["vectors"]]) 
+
+ggplot(betadisper_tp8_df,aes(x=PCoA1,y=PCoA2,colour=Prob_resp))+
+  geom_point(size=3)+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=Prob_resp),level = 0.50)+
+  scale_color_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()+
+  xlab("ASV Profile PCoA1 (45%)")+
+  ylab("ASV Profile PCoA2 (26%)")+
+  theme(text = element_text(size=18))
+
+#get loadings
+ord_obj <- ordinate(ps_filter_tp8, method = "PCoA", distance = "bray")
+plot_ord_obj <- plot_ordination(ps_filter_tp8, ord_obj,type = "taxa")
+
+#get list of ASVs in >25% of samples
+otu_raw <- ps_filter_tp8@otu_table %>% as.data.frame %>% t
+otu_raw_filt_index <- apply(otu_raw,2,function(X){sum(X>0)>0.01*length(X)}) %>% #filter asvs to at least 10% of samples
+  as.data.frame %>% 
+  filter(.==TRUE) %>% 
+  rownames
+
+loadings_df <- data.frame(plot_ord_obj[["plot_env"]][["DF"]]) %>% 
+  mutate(ASV=rownames(.),
+         prev_level=ifelse(ASV %in% otu_raw_filt_index,"high","low")) %>% 
+  arrange(Axis.2, prev_level)
+
+loadings_df_high <- loadings_df %>% 
+  filter(prev_level=="high")
+
+ggplot(loadings_df,aes(x=Axis.1,y=Axis.2,colour=prev_level,label=Genus))+
+  geom_point()+
+  geom_text(aes(label=ifelse(prev_level=="high",as.character(Genus),'')),hjust=0,vjust=0)
+
+ps_filter_tp8_otu <- ps_filter_tp8@otu_table %>% as.matrix %>% as.data.frame %>% 
+  mutate(ASV=rownames(.)) %>% 
+  gather(key = SampleID,value=rel_ab,-ASV) %>% 
+  left_join(.,select(meta_tp8,SampleID,Participant,treatment_type,Prob_resp))
+
+ps_filter_tp8_otu_top <- ps_filter_tp8_otu %>% 
+  # filter(ASV %in% loadings_df_high[c(1:3),"ASV"]) %>% 
+  left_join(.,loadings_df_high)
+ggplot(ps_filter_tp8_otu_top,aes(x=Prob_resp,y=rel_ab,fill=Prob_resp))+
+  geom_boxplot()+
+  facet_wrap(~Family,scales="free")
+
+loadings_df_avg <- loadings_df_high %>% 
+  mutate(OFG=paste(Order,Family,Genus,sep = "")) %>% 
+  # select(OFG,Axis.1,Axis.2)
+  group_by(Genus) %>% 
+  dplyr::summarize(avg_pcoa1=mean(Axis.1,na.rm = TRUE),
+                   avg_pcoa2=mean(Axis.2,na.rm = TRUE)) %>% 
+  na.omit()
+ggplot(loadings_df_avg,aes(x=avg_pcoa1,y=avg_pcoa2,label=Genus))+
+  geom_point()+
+  geom_text(aes(label=Genus),hjust=0,vjust=0)
+
+ggplot()+
+  geom_point(data=betadisper_tp8_df,aes(x=PCoA1,y=PCoA2,colour=Prob_resp),size=3)+
+  stat_ellipse(data=betadisper_tp8_df,aes(x=PCoA1,y=PCoA2,colour=Prob_resp),level = 0.50)+
+  scale_color_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()+
+  xlab("ASV Profile PCoA1 (45%)")+
+  ylab("ASV Profile PCoA2 (26%)")+
+  theme(text = element_text(size=18))+
+  geom_text(data=loadings_df_avg,aes(x=avg_pcoa1,y=avg_pcoa2,label=Genus),hjust=0,vjust=0)
+
+ps_filter_tp8_otu_df_genus <- ps_filter_tp8_otu %>% 
+  # filter(ASV %in% loadings_df_high[c(1:3),"ASV"]) %>% 
+  left_join(.,loadings_df_high) %>% 
+  mutate(FG=paste(Family,Genus,sep = "")) %>% 
+  group_by(Participant,treatment_type,Prob_resp,Genus) %>% 
+  dplyr::summarize(rel_ab_genus=mean(rel_ab,na.rm = TRUE)) %>% 
+  filter(rel_ab_genus >0) %>% 
+  mutate(R_or_no=ifelse(Prob_resp=="Responder","Responder","All_else")) %>% 
+  spread(key=Genus,value=rel_ab_genus) 
+ps_filter_tp8_otu_df_genus[is.na(ps_filter_tp8_otu_df_genus)]<-0
+ps_filter_tp8_otu_df_genus_gather <- ps_filter_tp8_otu_df_genus %>% 
+  gather(key=FG,value=rel_ab_genus,-Participant,-treatment_type,-Prob_resp,-R_or_no)
+ggplot(ps_filter_tp8_otu_df_genus_gather,aes(x=R_or_no,y=rel_ab_genus,fill=R_or_no))+
+  geom_boxplot()+
+  facet_wrap(~FG, scales="free")
+ps_filter_tp8_otu_df_genus_RorNO <- ps_filter_tp8_otu_df_genus_gather %>% 
+  ungroup() #%>% 
+  # select(FG,R_or_no,rel_ab_genus) %>% 
+  # spread(key=R_or_no,value=rel_ab_genus)
+```
+
+
+Calculate the difference between base and end of intervention to project into PCoA space
+```{r}
+#baseline otus
+ppt_labels_tp3 <- ppt_labels_resp %>% 
+  filter(Timepoint==3 & ! Participant %in% c(7003,7032,7008)) #%>% 
+  # filter(Prob_resp %in% c("Placebo","Responder"))
+ps_filter_tp3 <- ps_tree %>% 
+  subset_samples(SampleID %in% ppt_labels_tp3$SampleID) %>% 
+  microbiome::transform(transform = "compositional")
+meta_tp3 <- microbiome::meta(ps_filter_tp3) %>% 
+  right_join(.,ppt_labels_tp3) 
+ps_filter_tp3_otu <- ps_filter_tp3@otu_table %>% as.matrix %>% as.data.frame %>% 
+  mutate(ASV=rownames(.)) %>% 
+  gather(key = SampleID,value=rel_ab,-ASV) %>% 
+  left_join(.,select(meta_tp3,SampleID,Participant,treatment_type,Prob_resp)) %>% 
+  select(-SampleID) %>% 
+  dplyr::rename(tp3_rel_ab=rel_ab)
+
+otu_tp3_tp8 <- inner_join(ps_filter_tp3_otu,ps_filter_tp8_otu %>% select(-SampleID) %>% dplyr::rename(tp8_rel_ab=rel_ab)) %>% 
+  mutate(rel_ab_change=tp8_rel_ab-tp3_rel_ab,
+         log_change=log(rel_ab_change+1+0.1850876)) #added constant is abs(min(change_rel_ab))
+
+otu_tp3_tp8_spread <- otu_tp3_tp8 %>% 
+  select(ASV,Participant,log_change) %>% 
+  spread(key=Participant,value=log_change) 
+rownames(otu_tp3_tp8_spread) <- otu_tp3_tp8_spread$ASV
+otu_tp3_tp8_obj <- otu_tp3_tp8_spread %>% 
+  select(-ASV) %>% 
+  otu_table(taxa_are_rows = TRUE)
+meta_otu_tp3_tp8 <- otu_tp3_tp8 %>% 
+  select(Participant,treatment_type,Prob_resp) %>% 
+  unique
+
+dist_tp8_tp3_change <- distance(otu_tp3_tp8_obj, method = "bray")
+mod_tp8_tp3_change <- betadisper(dist_tp8_tp3_change, meta_otu_tp3_tp8$Prob_resp)
+betadisper_tp3_tp8_change_df <- data.frame(Participant=meta_otu_tp3_tp8$Participant,
+                            treatment_type=meta_otu_tp3_tp8$treatment_type,
+                            Prob_resp=meta_otu_tp3_tp8$Prob_resp,
+                            dist_cent=mod_tp8_tp3_change[["distances"]],
+                            mod_tp8_tp3_change[["vectors"]]) 
+
+otu_tp3_tp8_transpose <- otu_tp3_tp8 %>% 
+  select(Participant,treatment_type,Prob_resp,ASV,log_change) %>% 
+  spread(key=ASV,value=log_change) %>% 
+  filter(Prob_resp!="Non_responder")
+otu_tp3_tp8_transpose_raw <- otu_tp3_tp8_transpose %>% 
+  select(-Participant,-treatment_type,-Prob_resp)
+permanova <- adonis(
+  otu_tp3_tp8_transpose_raw ~ Prob_resp,
+  data = otu_tp3_tp8_transpose,
+  permutations = 99,
+  method = "bray"
+)
+print(as.data.frame(permanova$aov.tab)["Prob_resp", "Pr(>F)"])
+
+
+ggplot(betadisper_tp3_tp8_change_df,aes(x=PCoA1,y=PCoA2,colour=Prob_resp))+
+  geom_point(size=3)+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=Prob_resp),level = 0.50)+
+  scale_color_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()+
+  xlab("ASV Profile PCoA1")+
+  ylab("ASV Profile PCoA2")+
+  theme(text = element_text(size=18))
+
+```
+
+Paired t test for distance from tp1 for each other timepoint
+```{r}
+paired_ttest_func_fixed_var <- function(df, fixed_var,var_list,paired_bool){
+  pvalue_list <- c()
+  sigg_list <- c()
+  for(i in var_list){
+    pvalue=t.test(df[,fixed_var],df[,i],paired=paired_bool,na.action=na.omit)$p.value
+    pvalue_list <- c(pvalue_list,pvalue)
+    
+    sigg_value <- ifelse(pvalue<=0.05,"**","")
+    sigg_list <- c(sigg_list,sigg_value)
+  }
+  pvalue_df <- data.frame(Variable=var_list,pvalue=pvalue_list,significance=sigg_list)
+  return(pvalue_df)
+}
+
+timepoint_var_list <- c("4","5","6","7","8","9","10")
+dis_all_from_one_prob_spread <- dis_all_from_one %>% 
+  select(-SampleID_row,-SampleID_col,-row_tp,-Timepoint) %>% 
+  spread(key=col_tp,value=dist) %>% 
+  filter(row_tt=="Probiotic")
+prob_dist_from_1_pairedTTest <- paired_ttest_func_fixed_var(dis_all_from_one_prob_spread,"2",timepoint_var_list,TRUE) 
+
+dis_all_from_one_plac_spread <- dis_all_from_one %>% 
+  select(-SampleID_row,-SampleID_col,-row_tp,-Timepoint) %>% 
+  spread(key=col_tp,value=dist) %>% 
+  filter(row_tt=="Placebo")
+plac_dist_from_1_pairedTTest <- paired_ttest_func_fixed_var(dis_all_from_one_plac_spread,"2",timepoint_var_list,TRUE) 
+
+#unpaired probiotic vs. placebo at all timeponits
+t.test(dis_all_from_one_plac_spread$`8`,dis_all_from_one_prob_spread$`8`)
+
+#LME for change across time for each participant
+dis_all_from_one_gather <- dis_all_from_one %>%
+  select(-SampleID_row,-SampleID_col,-row_tp,-Timepoint)
+dist_one_lme_all <- lme(dist~col_tp+col_pr,data=dis_all_from_one_gather,random = ~1|col_ppt)
+summary(dist_one_lme_all)$tTable
+
+dist_one_lme_placebo <- lme(dist~col_tp,data=filter(dis_all_from_one_gather,col_pr=="Placebo" & col_tp %in% c(3:8)),random = ~1|col_ppt)
+summary(dist_one_lme_placebo)$tTable
+dist_one_lme_probiotic <- lme(dist~col_tp,data=filter(dis_all_from_one_gather,col_pr!="Placebo" & col_tp %in% c(3:8)),random = ~1|col_ppt)
+summary(dist_one_lme_probiotic)$tTable
+
+dist_one_lme_probR <- lme(dist~col_tp,data=filter(dis_all_from_one_gather,col_pr=="Responder" & col_tp %in% c(3:8)),random = ~1|col_ppt)
+summary(dist_one_lme_probR)$tTable
+
+dist_one_lme_probNR <- lme(dist~col_tp,data=filter(dis_all_from_one_gather,col_pr=="Non_responder" & col_tp %in% c(3:8)),random = ~1|col_ppt)
+summary(dist_one_lme_probNR)$tTable
+```
+
+Calculate distance matrix by timepoint bin
+```{r}
+ppt_labels_all <- ppt_labels_resp %>%
+  filter(Timepoint %in% c(1:10))
+ps_filter <-
+  ps_tree %>% subset_samples(SampleID %in% ppt_labels_all$SampleID)
+pseq.rel <- microbiome::transform(ps_filter, "compositional")
+meta <- microbiome::meta(pseq.rel) %>%
+  left_join(., ppt_labels_all) %>% 
+  select(SampleID, Participant,Timepoint,treatment_type,Prob_resp) %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(1:3),"Baseline",
+                                ifelse(Timepoint %in% c(4:6),"EarlyInt",
+                                       ifelse(Timepoint %in% c(7,8),"LatInt","Washout"))),
+         Participant_tp=paste(Participant,Timepoint_label,sep="_")) 
+pseq.rel@sam_data <- sample_data(meta)
+merged_pseq.rel = merge_samples(pseq.rel, "Participant_tp")
+
+dist.wuf <- phyloseq::distance(merged_pseq.rel, method = "unifrac") %>% as.matrix %>% as.data.frame()
+ut <- upper.tri(dist.wuf)
+dist.wuf_upper <- data.frame(
+    row = rownames(dist.wuf)[row(dist.wuf)[ut]],
+    col = rownames(dist.wuf)[col(dist.wuf)[ut]],
+    dist  =(dist.wuf)[ut])
+  
+dist.wuf_df <- dist.wuf_upper %>% 
+  separate(row,into=c("row_ppt","row_tpbin"),sep = "_") %>% 
+  separate(col,into=c("col_ppt","col_tpbin"),sep = "_") %>% 
+  left_join(., unique(select(meta,Participant,treatment_type,Prob_resp)), by = c("row_ppt" = "Participant")) %>% 
+  dplyr::rename(row_tt=treatment_type,
+                row_pr=Prob_resp) %>% 
+  left_join(., unique(select(meta,Participant,treatment_type,Prob_resp)), by = c("col_ppt" = "Participant")) %>% 
+  dplyr::rename(col_tt=treatment_type,
+                col_pr=Prob_resp) %>% 
+  na.omit()
+
+dist.wuf_ppt <- dist.wuf_df %>% 
+  filter(row_ppt==col_ppt)
+
+ggplot(dist.wuf_ppt,aes(x=col_tpbin,y=dist,fill=row_tt))+
+  geom_boxplot()
+
+t.test(filter(dist.wuf_ppt,row_tt=="Placebo" & col_tpbin=="LatInt")$dist,filter(dist.wuf_ppt,row_tt=="Probiotic" & col_tpbin=="LatInt")$dist)
+t.test(filter(dist.wuf_ppt,row_tt=="Placebo" & col_tpbin=="EarlyInt")$dist,filter(dist.wuf_ppt,row_tt=="Probiotic" & col_tpbin=="EarlyInt")$dist)
+
+
+
+dist.wuf_tp_bin <- dist.wuf_df %>% 
+  filter(row_tpbin==col_tpbin) %>%
+  mutate(compare_tt=paste(row_tt,col_tt,sep = "_"),
+         compare_tt_clean=ifelse(compare_tt %in% c("Placebo_Probiotic","Probiotic_Placebo"),"Placebo_Probiotic",compare_tt))
+ggplot(dist.wuf_tp_bin,aes(x=row_tpbin,y=dist,fill=compare_tt_clean))+
+  geom_boxplot()
+```
+
+Make dataframe for merged seq table and export for analysis
+```{r}
+ppt_labels_groups <- ppt_labels %>% 
+  filter(Timepoint %in% c(1:10)) %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder"))) %>% 
+  select(Participant,treatment_type,prob_response)
+
+merged_tp_chunk_seq_table <- data.frame(merged_pseq.rel@otu_table) %>% 
+  tibble::rownames_to_column("Participant_tp_chunk") %>% 
+  separate(Participant_tp_chunk,into=c("Participant","tp_chunk")) %>% 
+  right_join(ppt_labels_groups,.)
+# saveRDS(merged_tp_chunk_seq_table,"~/R/Project_Probiotic/CLEAN_CODE/rds_obj/seq_table_merged_tp_chunk.rds")
+
+merged_tp_chunk_taxa_table <- data.frame(merged_pseq.rel@tax_table)
+saveRDS(merged_tp_chunk_seq_table,"~/R/Project_Probiotic/CLEAN_CODE/rds_obj/taxa_table_merged_tp_chunk.rds")
+
+```
+
+
+
+Beta diversity by timepoint bin
+```{r}
+#probiotic vs. placebo at tp 8
+set.seed(2)
+#probiotic  vs. placebo
+otu_tp_bin_df <- microbiome::abundances(pseq.rel) %>% 
+  as.data.frame %>% 
+  mutate(ASV=rownames(.)) %>% 
+  gather(key=SampleID,value=rel_ab,-ASV) %>% 
+  left_join(.,meta) %>% 
+  group_by(Participant,treatment_type,Prob_resp,Timepoint_label,ASV) %>% 
+  dplyr::summarize(tp_bin_relab=sum(rel_ab)) %>% 
+  spread(key=ASV,value=tp_bin_relab)
+
+otu_tp_bin_df_raw <- otu_tp_bin_df %>% 
+  ungroup %>% 
+  select(-c(Participant:Timepoint_label))
+
+dist_otu_eu <- stats::dist(otu_tp_bin_df_raw, method="euclidean")
+otu_tp_bin_meta <- otu_tp_bin_df %>% 
+  select(c(Participant:Timepoint_label))
+
+# permanova <- adonis2(
+#   otu_tp_bin_df_raw ~ treatment_type,
+#   data = otu_tp_bin_df,
+#   permutations = 99,
+#   method = "bray"
+# )
+# print(as.data.frame(permanova$aov.tab)["treatment_type", "Pr(>F)"])
+
+
+set.seed(2)
+#probiotic resp vs. placebo
+ppt_labels_tp8_probR <- ppt_labels_resp %>% 
+  filter(Timepoint==8) %>% 
+  filter(Prob_resp %in% c("Placebo","Responder"))
+ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tp8_probR$SampleID)
+pseq.rel <- microbiome::transform(ps_filter, "compositional")
+otu <- microbiome::abundances(pseq.rel)
+meta <- microbiome::meta(pseq.rel) %>% 
+  right_join(.,ppt_labels_tp8_probR)
+permanova <- adonis(
+  t(otu) ~ treatment_type,
+  data = meta,
+  permutations = 99,
+  method = "bray"
+)
+print(as.data.frame(permanova$`Pr(>F)`)[1,1])
+
+dist_methods <- c("wunifrac","unifrac","bray","jaccard")
+
+adonis_pvalue_df_prob_plac <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:6,8,10)){
+  set.seed(2)
+  print(i)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i) 
+  ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tpX$SampleID)
+  meta <- microbiome::meta(ps_filter) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(dist.uf ~ treatment_type, data = meta, perm=9999)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_plac <- bind_rows(adonis_pvalue_df_prob_plac,df_temp)
+}
+#placebo vs. probiotic responders 
+adonis_pvalue_df_prob_resp <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:10)){
+  print(i)
+  set.seed(2)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i & ! Participant %in% c(7003,7032)) %>% 
+    filter(Prob_resp %in% c("Placebo","Responder"))
+  ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tpX$SampleID)
+  meta <- microbiome::meta(pseq.rel) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    print(j)
+    dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(dist.uf ~ Prob_resp, data = meta, perm=9999)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_resp <- bind_rows(adonis_pvalue_df_prob_resp,df_temp)
+}
+adonis_pvalue_df_prob_resp <- adonis_pvalue_df_prob_resp %>% 
+  spread(key=dist_method,value=pvalue)
+
+
+
+#probiotic responder vs. non repsonder at all timepoints
+adonis_pvalue_df_prob_resp_non <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:10)){
+  print(i)
+  set.seed(2)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i & ! Participant %in% c(7003,7032,7008)) %>% 
+    filter(Prob_resp %in% c("Non_responder","Responder"))
+  ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tpX$SampleID)
+  meta <- microbiome::meta(pseq.rel) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    print(j)
+    dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(dist.uf ~ Prob_resp, data = meta, perm=9999)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_resp_non <- bind_rows(adonis_pvalue_df_prob_resp_non,df_temp)
+}
+adonis_pvalue_df_prob_resp_non <- adonis_pvalue_df_prob_resp_non %>% 
+  spread(key=dist_method,value=pvalue)
+
+ggplot(adonis_pvalue_df_prob_resp_non,aes(x=Timepoint,y=-log2(wunifrac)))+
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  geom_hline(yintercept = -log2(0.05))
+```
+
+
+```{r}
+dist_methods <- c("wunifrac","unifrac","bray","jaccard","euclidean")
+adonis_pvalue_df_prob_resp_non <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:10)){
+  set.seed(2)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i & ! Participant %in% c(7003,7032,7008)) %>% 
+    filter(Prob_resp %in% c("Non_responder","Responder"))
+  ps_filter <- ps_tree %>% 
+    subset_samples(SampleID %in% ppt_labels_tpX$SampleID) %>% 
+    microbiome::transform(transform = "compositional") #%>% 
+    # filter_taxa(function(X){sum(X>0)>0.05*length(X)}, TRUE)
+  meta <- microbiome::meta(ps_filter) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(dist.uf ~ Prob_resp, data = meta, perm=9999)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_resp_non <- bind_rows(adonis_pvalue_df_prob_resp_non,df_temp)
+}
+adonis_pvalue_df_prob_resp_non <- adonis_pvalue_df_prob_resp_non %>% 
+  spread(key=dist_method,value=pvalue) %>% 
+  mutate(comparison="ProbRvsProbNR")
+
+
+ggplot(adonis_pvalue_df_prob_resp_non,aes(x=Timepoint,y=-log2(wunifrac)))+
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  geom_hline(yintercept = -log2(0.05))+
+  ggtitle("Prob R vs. NR")
+
+adonis_pvalue_df_prob_resp_plac <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:10)){
+  set.seed(2)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i & ! Participant %in% c(7003,7032,7008)) %>% 
+    filter(Prob_resp %in% c("Placebo","Responder"))
+  ps_filter <- ps_tree %>% 
+    subset_samples(SampleID %in% ppt_labels_tpX$SampleID) %>% 
+    microbiome::transform(transform = "compositional") #%>% 
+    # filter_taxa(function(X){sum(X>0)>0.05*length(X)}, TRUE)
+
+  meta <- microbiome::meta(ps_filter) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(dist.uf ~ Prob_resp, data = meta, perm=9999)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_resp_plac <- bind_rows(adonis_pvalue_df_prob_resp_plac,df_temp)
+}
+adonis_pvalue_df_prob_resp_plac <- adonis_pvalue_df_prob_resp_plac %>% 
+  spread(key=dist_method,value=pvalue) %>% 
+  mutate(comparison="ProbRvsPlac")
+
+
+ggplot(adonis_pvalue_df_prob_resp_plac,aes(x=Timepoint,y=-log2(wunifrac)))+
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  geom_hline(yintercept = -log2(0.05))+
+  ggtitle("Prob R vs. Placebo")
+
+adonis_pvalue_df_prob_NOresp_plac <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:10)){
+  set.seed(2)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i & ! Participant %in% c(7003,7032,7008)) %>% 
+    filter(Prob_resp %in% c("Placebo","Non_responder"))
+  ps_filter <- ps_tree %>% 
+    subset_samples(SampleID %in% ppt_labels_tpX$SampleID) %>% 
+    microbiome::transform(transform = "compositional") #%>% 
+    # filter_taxa(function(X){sum(X>0)>0.05*length(X)}, TRUE)
+
+  meta <- microbiome::meta(ps_filter) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(dist.uf ~ Prob_resp, data = meta, perm=9999)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_NOresp_plac <- bind_rows(adonis_pvalue_df_prob_NOresp_plac,df_temp)
+}
+adonis_pvalue_df_prob_NOresp_plac <- adonis_pvalue_df_prob_NOresp_plac %>% 
+  spread(key=dist_method,value=pvalue) %>% 
+  mutate(comparison="ProbNRvsPlac")
+
+ggplot(adonis_pvalue_df_prob_NOresp_plac,aes(x=Timepoint,y=-log2(wunifrac)))+
+  geom_bar(stat = "identity")+
+  theme_classic()+
+  geom_hline(yintercept = -log2(0.05))+
+  ggtitle("Prob NR vs. Placebo")
+
+```
+
+Plot beta diversity changes for Placebo vs Probiotic R vs Probiotic NR
+```{r}
+adonis_pvalue_df_beta_div_all <- bind_rows(adonis_pvalue_df_prob_resp_plac,
+                                           adonis_pvalue_df_prob_NOresp_plac) %>% 
+  bind_rows(adonis_pvalue_df_prob_resp_non) %>% 
+  mutate(Timepoint=as.factor(Timepoint))
+
+
+ggplot(adonis_pvalue_df_beta_div_all,aes(x=Timepoint,y=-log2(wunifrac),fill=comparison))+
+  geom_bar(position="dodge",stat = "identity")+
+  theme_classic()+
+  geom_hline(yintercept = -log2(0.05))+
+  ylab("-log2(p-value) for weighted unifrac beta diversity")+
+  scale_fill_manual(values=c("#b2182b","#2166ac","black"))+
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7,8,9,10),labels=c("-4","-2","0","2", "4","6", "8","10","12","14"),name="Time (weeks)")+
+  theme(text = element_text(size=18))
+#ggsave(paste(save_figure_path,"wunifrac_adonis_barplot.pdf"),width=11.2,height = 9.35)
+```
+
+
+
+
+```{r}
+#plot timepoint 8
+
+set.seed(2)
+#probiotic resp vs. placebo
+ppt_labels_tp8 <- ppt_labels_resp %>% 
+  filter(Timepoint==8 & ! Participant %in% c(7003,7032,7008)) #%>% 
+  # filter(Prob_resp %in% c("Placebo","Responder"))
+
+ps_filter_tp8 <- ps_tree %>% 
+  subset_samples(SampleID %in% ppt_labels_tp8$SampleID) %>% 
+  microbiome::transform(transform = "compositional") #%>% 
+  # filter_taxa(function(X){sum(X>0)>0.10*length(X)}, TRUE) #filter to only ASVs in at least 10% of samples
+meta_tp8 <- microbiome::meta(ps_filter_tp8) %>% 
+  right_join(.,ppt_labels_tp8) 
+dist.uf_tp8 <- phyloseq::distance(ps_filter_tp8, method = "bray")
+mod_tp8 <- betadisper(dist.uf_tp8, meta_tp8$Prob_resp)
+betadisper_tp8_df <- data.frame(Participant=meta_tp8$Participant,
+                            treatment_type=meta_tp8$treatment_type,
+                            Prob_resp=meta_tp8$Prob_resp,
+                            dist_cent=mod_tp8[["distances"]],
+                            mod_tp8[["vectors"]]) 
+
+ggplot(betadisper_tp8_df,aes(x=PCoA1,y=PCoA2,colour=Prob_resp))+
+  geom_point(size=3)+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=Prob_resp),level = 0.50)+
+  scale_color_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()+
+  xlab("ASV Profile PCoA1 (45%)")+
+  ylab("ASV Profile PCoA2 (26%)")+
+  theme(text = element_text(size=18))
+
+#get loadings
+ord_obj <- ordinate(ps_filter_tp8, method = "PCoA", distance = "bray")
+plot_ord_obj <- plot_ordination(ps_filter_tp8, ord_obj,type = "taxa")
+
+#get list of ASVs in >25% of samples
+otu_raw <- ps_filter_tp8@otu_table %>% as.data.frame %>% t
+otu_raw_filt_index <- apply(otu_raw,2,function(X){sum(X>0)>0.25*length(X)}) %>% #filter asvs to at least 10% of samples
+  as.data.frame %>% 
+  filter(.==TRUE) %>% 
+  rownames
+
+loadings_df <- data.frame(plot_ord_obj[["plot_env"]][["DF"]]) %>% 
+  mutate(ASV=rownames(.),
+         prev_level=ifelse(ASV %in% otu_raw_filt_index,"high","low"))
+
+write.csv(loadings_df,paste(save_figure_path,"asv_pcoa_loadings.csv"))  
+
+ggplot(loadings_df,aes(x=Axis.1,y=Axis.2,colour=prev_level,label=Genus))+
+  geom_point()+
+  geom_text(aes(label=ifelse(prev_level=="high",as.character(Genus),'')),hjust=0,vjust=0)
+
+# 
+# 
+# otu_raw <- ps_filter_tp8@otu_table %>% as.data.frame %>% t
+# otu_raw_filt_index <- apply(otu_raw,2,function(X){sum(X>0)>0.25*length(X)}) #filter asvs to at least 10% of samples
+# out_raw_filt <- otu_raw[,otu_raw_filt_index]
+# plot_ordination(ps_filter_tp8, ord_obj,type = "taxa",label="Family")
+# 
+# 
+# FSfr = filter_taxa(ps_filter_tp8, function(X){sum(X>0)>0.10*length(X)}, TRUE)
+# otu_raw <- FSfr@otu_table %>% as.data.frame %>% t
+
+```
+
+
+
+Bray and Jaccard for relative abundance of OTU table
+```{r}
+dist_methods <- c("bray","jaccard","eu")
+
+#probiotic responder vs. non-responder 
+adonis_pvalue_df_prob_resp_relAb <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:10)){
+  print(i)
+  set.seed(2)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i & ! Participant %in% c(7003,7032,7008)) %>% 
+    filter(Prob_resp %in% c("Responder","Non_responder"))
+  ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tpX$SampleID)
+  pseq.rel <- microbiome::transform(ps_filter, "compositional")
+  otu <- microbiome::abundances(pseq.rel)
+  meta <- microbiome::meta(pseq.rel) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    print(j)
+    # dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(
+      t(otu) ~ Prob_resp,
+      data = meta,
+      permutations = 99,
+      method = j,
+      na.action = na.omit)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_resp_relAb <- bind_rows(adonis_pvalue_df_prob_resp_relAb,df_temp)
+}
+adonis_pvalue_df_prob_resp_relAb <- adonis_pvalue_df_prob_resp_relAb %>% 
+  spread(key=dist_method,value=pvalue)
+
+#probiotic responder vs. all
+adonis_pvalue_df_prob_resp_relAb <- data.frame(Timepoint=c(),dist_method=c(),pvalue=c())
+for(i in c(1:10)){
+  print(i)
+  set.seed(2)
+  adonis_pvalue <- c()
+  ppt_labels_tpX <- ppt_labels_resp %>% 
+    filter(Timepoint==i & ! Participant %in% c(7003,7032,7008)) %>% 
+    mutate(probR_vs_not=ifelse(Prob_resp=="Responder","Responder","Other"))
+  ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tpX$SampleID)
+  pseq.rel <- microbiome::transform(ps_filter, "compositional")
+  otu <- microbiome::abundances(pseq.rel)
+  meta <- microbiome::meta(pseq.rel) %>% 
+    right_join(.,ppt_labels_tpX)
+  for(j in dist_methods){
+    print(j)
+    # dist.uf <- phyloseq::distance(ps_filter, method = j)
+    ps.adonis <- adonis2(
+      t(otu) ~ probR_vs_not,
+      data = meta,
+      permutations = 99,
+      method = j,
+      na.action = na.omit)
+    adonis_pvalue <- c(adonis_pvalue,as.data.frame(ps.adonis$`Pr(>F)`)[1,1])
+  }
+  df_temp=data.frame(Timepoint=i,
+                     dist_method=dist_methods,
+                     pvalue=adonis_pvalue)
+  adonis_pvalue_df_prob_resp_relAb <- bind_rows(adonis_pvalue_df_prob_resp_relAb,df_temp)
+}
+adonis_pvalue_df_prob_resp_relAb <- adonis_pvalue_df_prob_resp_relAb %>% 
+  spread(key=dist_method,value=pvalue)
+
+
+#plot timepoint 8
+
+set.seed(2)
+#placebo vs. non-responder
+ppt_labels_tp8_probNR_plac <- ppt_labels_resp %>% 
+  filter(Timepoint==8 & ! Participant %in% c(7003,7032)) %>% 
+  filter(Prob_resp %in% c("Placebo","Non_responder"))
+ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tp8_probNR_plac$SampleID)
+pseq.rel <- microbiome::transform(ps_filter, "compositional")
+otu <- microbiome::abundances(pseq.rel)
+meta <- microbiome::meta(pseq.rel) %>% 
+  right_join(.,ppt_labels_tp8_probNR_plac)
+permanova <- adonis2(
+  t(otu) ~ Prob_resp,
+  data = meta,
+  permutations = 99,
+  method = "bray"
+)
+print(as.data.frame(permanova$`Pr(>F)`)[1,1])
+
+#probiotic R vs. other at tp8
+set.seed(2)
+ppt_labels_tp8_probR_vsOther <- ppt_labels_resp %>% 
+  filter(Timepoint==8 & ! Participant %in% c(7003,7032)) %>% 
+  mutate(probR_vs_not=ifelse(Prob_resp=="Responder","Responder","Other"))
+ps_filter <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tp8_probR_vsOther$SampleID)
+pseq.rel <- microbiome::transform(ps_filter, "compositional")
+otu <- microbiome::abundances(pseq.rel)
+meta <- microbiome::meta(pseq.rel) %>% 
+  right_join(.,ppt_labels_tp8_probR_vsOther)
+permanova <- adonis2(
+  t(otu) ~ probR_vs_not,
+  data = meta,
+  permutations = 99,
+  method = "bray"
+)
+print(as.data.frame(permanova$`Pr(>F)`)[1,1])
+
+
+dis <- vegdist(t(otu),method="bray")
+## Calculate multivariate dispersions
+mod <- betadisper(dis, meta$Prob_resp)
+
+betadisper_df <- data.frame(Participant=meta$Participant,
+                            treatment_type=meta$treatment_type,
+                            prob_response=meta$Prob_resp,
+                            dist_cent=mod[["distances"]],
+                            mod[["vectors"]]) 
+ggplot(betadisper_df,aes(x=PCoA1,y=PCoA2,colour=prob_response))+
+  geom_point(size=3)+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=prob_response),level = 0.50)+
+  scale_color_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()+
+  xlab("ASV Profile PCoA1")+
+  ylab("ASV Profile PCoA2")+
+  theme(text = element_text(size=18))
+ggsave(paste(save_figure_path,"bray_pcoa_tp8.pdf"),width=6.5,height = 5)
+
+ord_obj <- ordinate(pseq.rel, method = "PCoA", distance = "bray")
+p2 <- plot_ordination(pseq.rel, ord_obj,type = "taxa")
+
+loadings_df <- data.frame(p2[["plot_env"]][["DF"]]) %>% 
+  mutate(ASV=rownames(.))
+
+t.test(filter(betadisper_df,treatment_type=="Probiotic")$dist_cent,filter(betadisper_df,treatment_type=="Placebo")$dist_cent)
+```
+
+Calculate beta diversity at every timepoint 
+```{r}
+set.seed(2)
+#probiotic resp vs. placebo
+ppt_labels_all <- ppt_labels_resp %>%
+  na.omit
+ps_all <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_all$SampleID)
+pseq.rel_all <- microbiome::transform(ps_all, "compositional")
+otu_all <- microbiome::abundances(pseq.rel_all)
+meta_all <- microbiome::meta(pseq.rel_all) %>% 
+  left_join(.,ppt_labels_all)
+
+#distance from centroid for each participant
+dis_all <- vegdist(t(otu_all),method="bray")
+mod_all_ppt <- betadisper(dis_all, meta_all$Participant)
+
+betadisper_df_all_ppt <- data.frame(Participant=meta_all$Participant,
+                            treatment_type=meta_all$treatment_type,
+                            prob_response=meta_all$Prob_resp,
+                            Timepoint=meta_all$Timepoint,
+                            dist_cent=mod_all_ppt[["distances"]],
+                            mod_all_ppt[["vectors"]]) %>%
+  # na.omit() %>% 
+  mutate(Timepoint=factor(Timepoint,levels = c(1:10),ordered = TRUE))
+
+ggplot(betadisper_df_all_ppt,aes(x=Timepoint,y=dist_cent,fill=treatment_type))+
+  geom_boxplot()+
+  facet_wrap(~treatment_type)+
+  theme_classic()
+
+betadisper_df_all_ppt_prob <- betadisper_df_all_ppt %>% 
+  mutate(Timepoint=as.integer(Timepoint)) %>% 
+  filter(treatment_type=="Probiotic")
+betadisper_ppt_LME <-lme(dist_cent~Timepoint,data=betadisper_df_all_ppt_prob,random=~1|Participant)
+summary(betadisper_ppt_LME)$tTable
+
+#dist from centroid by treatment type and timepoint
+mod_all_tp <- betadisper(dis_all, paste(meta_all$treatment_type,meta_all$Timepoint,sep="_"))
+
+betadisper_df_all_tp <- data.frame(Participant=meta_all$Participant,
+                            treatment_type=meta_all$treatment_type,
+                            prob_response=meta_all$Prob_resp,
+                            Timepoint=meta_all$Timepoint,
+                            dist_cent=mod_all_tp[["distances"]],
+                            mod_all_tp[["vectors"]]) %>% 
+  na.omit() %>% 
+  mutate(Timepoint=factor(Timepoint,levels = c(1:10),ordered = TRUE))
+
+betadisper_df_all_tp_chunk <- betadisper_df_all_tp %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(1,2,3),"Baseline",
+                                ifelse(Timepoint %in% c(4,5,6),"Early_int",
+                                       ifelse(Timepoint %in% c(7,8),"Late_int",
+                                              "Washout")))) %>% 
+  select(Participant,treatment_type,Timepoint,Timepoint_label,dist_cent) %>% 
+  group_by(Participant,treatment_type,Timepoint_label) %>% 
+  dplyr::summarize(avg_dist_cent=mean(dist_cent,na.rm=TRUE))
+ggplot(betadisper_df_all_tp_chunk,aes(x=Timepoint_label,y=avg_dist_cent,fill=treatment_type))+
+  geom_violin(draw_quantiles=0.5)+
+  facet_wrap(~treatment_type)+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85","thistle"))+
+  ylab("Average Distance from Centroid by Timepoint")
+
+# ggplot(betadisper_df_all_tp,aes(x=Timepoint,y=dist_cent,fill=treatment_type))+
+#   geom_boxplot()+
+#   facet_wrap(~treatment_type)+
+#   theme_classic()+
+#   scale_fill_manual(values=c("gray85","thistle"))+
+#   ylab("Average Distance from Centroid by Timepoint")
+
+
+betadisper_df_all_tp_prob <- betadisper_df_all_tp %>% 
+  mutate(Timepoint=as.integer(Timepoint)) %>% 
+  filter(treatment_type=="Probiotic")
+betadisper_tp_LME <-lme(dist_cent~Timepoint+prob_response,data=mutate(betadisper_df_all_tp,Timepoint=as.integer(Timepoint)),random=~1|Participant)
+summary(betadisper_tp_LME)$tTable
+
+
+#distance from centroid for each participant and timepoitn type 
+meta_all_tp_type <- meta_all %>% 
+  mutate(Timepoint_type_broad=ifelse(Timepoint %in% c(2,3),"Baseline",
+                                     ifelse(Timepoint %in% c(7,8),"Intervention",
+                                            ifelse(Timepoint %in% c(9,10),"Washout","Other"))))
+mod_all_tp_type <- betadisper(dis_all, paste(meta_all_tp_type$Participant,meta_all_tp_type$Timepoint_type_broad,sep="_"))
+
+betadisper_df_all_tp_type <- data.frame(Participant=meta_all_tp_type$Participant,
+                            treatment_type=meta_all_tp_type$treatment_type,
+                            prob_response=meta_all_tp_type$Prob_resp,
+                            Timepoint=meta_all_tp_type$Timepoint,
+                            Timepoint_type_broad=meta_all_tp_type$Timepoint_type_broad,
+                            dist_cent=mod_all_tp_type[["distances"]],
+                            mod_all_tp_type[["vectors"]]) %>%
+  # na.omit() %>% 
+  mutate(Timepoint_type_broad=factor(Timepoint_type_broad,levels = c("Baseline","Intervention","Washout","Other"),ordered = TRUE))
+
+ggplot(betadisper_df_all_tp_type,aes(x=Timepoint_type_broad,y=dist_cent,fill=treatment_type))+
+  geom_boxplot()+
+  facet_wrap(~treatment_type)+
+  theme_classic()
+
+betadisper_tp_type_LME <-lme(dist_cent~Timepoint_type_broad,data=filter(betadisper_df_all_tp_type,Timepoint_type_broad %in% c("Baseline","Intervention") &treatment_type=="Probiotic"),random=~1|Participant)
+summary(betadisper_tp_type_LME)$tTable
+```
+
+
+
+Elastic net predicting prob R vs. NR ASVs at end of intervention
+-null model
+```{r}
+ppt_labels_tp8_probR_NR <- ppt_labels_resp %>% 
+  filter(Timepoint==8 & ! Participant %in% c(7003,7032)) %>% 
+  filter(Prob_resp %in% c("Non_responder","Responder"))
+ps_filter_probR_NR <- ps_tree %>% subset_samples(SampleID %in% ppt_labels_tp8_probR_NR$SampleID)
+pseq.rel_probR_NR <- microbiome::transform(ps_filter_probR_NR, "compositional")
+otu_probR_NR <- microbiome::abundances(pseq.rel_probR_NR) %>% t %>% as.data.frame %>% 
+  mutate(SampleID=rownames(.)) %>% 
+  gather(key=ASV,value=rel_ab,-SampleID)
+
+otu_key <- data.frame(ASV=unique(otu_probR_NR$ASV),
+                      ASV_label=paste("ASV",c(1:length(unique(otu_probR_NR$ASV))),sep="_"))
+otu_probR_NR_label <- otu_probR_NR %>% 
+  left_join(.,otu_key) %>% 
+  left_join(.,ppt_labels_tp8_probR_NR) %>% 
+  select(Participant,treatment_type,Timepoint,Prob_resp,ASV_label,rel_ab) %>% 
+  spread(key=ASV_label,value=rel_ab)
+
+
+df_EN_in <- otu_probR_NR_label %>% 
+  select(-Participant,-treatment_type,-Timepoint) #%>% 
+
+df_EN_raw <- df_EN_in[ - as.numeric(which(apply(df_EN_in, 2, var) == 0))] %>% 
+  mutate_if(is.numeric,scale)
+
+
+  # mutate(prob_response=as.factor(prob_response)) %>% 
+  # mutate_if(is.numeric, scale)
+set.seed(200)
+trainIndex <- createDataPartition(df_EN_raw$Prob_resp, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% mutate_if(is.numeric, scale)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% mutate_if(is.numeric, scale)
+set.seed(20)
+enetFit <- train(Prob_resp ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN_prob_resp_base <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+all_df <- bind_rows(df_EN_train,df_EN_test)
+pred_df_all <- data.frame(actual=df_EN_raw$Prob_resp,
+                          predicted=predict(enetFit, newdata = all_df),
+                          index_num=c(1:dim(all_df)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+```
+
+
+Beta diversity on ASV table
+-calculate average ASV relative abundance by timepoint chunk
+```{r}
+ASV_labels <- data.frame(ASV=colnames(seq_table),
+                         ASV_label=paste("ASV",c(1:dim(seq_table)[2]),sep = "_"))
+
+seq_table_labels <- seq_table %>% 
+  as.data.frame() %>% 
+  mutate(SampleID=rownames(.)) %>% 
+  gather(key=ASV,value=count,-SampleID) %>% 
+  left_join(.,ASV_labels) %>% 
+  left_join(.,mutate(ppt_labels,SampleID=paste("X",SampleID,sep = ""))) %>% 
+  select(Participant,Timepoint,treatment_type,ASV_label,count)
+
+#calcualte relative abundance of the ASVs
+seq_table_sums <- seq_table_labels %>% 
+  group_by(Participant,treatment_type,Timepoint) %>% 
+  dplyr::summarize(ASV_count_tot=sum(count))
+
+seq_table_rel_ab <- seq_table_labels %>% 
+  left_join(.,seq_table_sums) %>% 
+  mutate(rel_ab=count/ASV_count_tot) %>% 
+  select(Participant:ASV_label,rel_ab) %>% 
+  na.omit() 
+
+seq_table_rel_ab_tp_chunk <- seq_table_rel_ab %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(1,2,3),"Baseline",
+                                ifelse(Timepoint %in% c(4,5,6),"Early_int",
+                                       ifelse(Timepoint %in% c(7,8),"Late_int",
+                                              "Washout")))) %>% 
+  group_by(Participant,treatment_type,Timepoint_label,ASV_label) %>% 
+  dplyr::summarize(rel_ab_tp_chunk=mean(rel_ab,na.rm=TRUE))
+
+#ASV changes from baseline to late int of probiotic group
+seq_table_rel_ab_tp_chunk_probiotic <- seq_table_rel_ab_tp_chunk %>% 
+  filter(treatment_type=="Probiotic" & Timepoint_label %in% c("Baseline","Late_int")) %>% 
+  spread(key = ASV_label,value=rel_ab_tp_chunk)
+
+seqseq_table_rel_ab_tp_chunk_probiotic_raw <- seq_table_rel_ab_tp_chunk_probiotic %>% 
+  ungroup() %>% 
+  select(-Timepoint_label,-Participant,-treatment_type) 
+
+permanova <- adonis(seqseq_table_rel_ab_tp_chunk_probiotic_raw ~ Timepoint_label, data = seq_table_rel_ab_tp_chunk_probiotic, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["Timepoint_label", "Pr(>F)"]
+
+#calculate difference in ASVs from baseline
+seq_table_rel_ab_tp_chunk_dff <- seq_table_rel_ab_tp_chunk %>% 
+  filter(Timepoint_label=="Baseline") %>% 
+  dplyr::rename(ASV_rel_ab_base=rel_ab_tp_chunk) %>% 
+  select(-Timepoint_label) %>% 
+  right_join(.,filter(seq_table_rel_ab_tp_chunk,Timepoint_label!="Baseline")) 
+seq_table_rel_ab_tp_chunk_dff[is.na(seq_table_rel_ab_tp_chunk_dff)] <- 0
+seq_table_rel_ab_tp_chunk_dff <- seq_table_rel_ab_tp_chunk_dff %>% 
+  mutate(ASV_rel_ab_diff=ASV_rel_ab_base-rel_ab_tp_chunk) %>% 
+  select(-ASV_rel_ab_base,-rel_ab_tp_chunk) %>% 
+  spread(key=ASV_label,value=ASV_rel_ab_diff)
+
+#ASV changes probiotic vs. placebo at end of intervention
+seq_table_rel_ab_tp_chunk_dff_late_int <- seq_table_rel_ab_tp_chunk_dff %>% 
+  filter(Timepoint_label=="Late_int") 
+
+seq_table_rel_ab_tp_chunk_dff_late_int_raw <- seq_table_rel_ab_tp_chunk_dff_late_int %>% 
+  ungroup() %>% 
+  select(-Timepoint_label,-Participant,-treatment_type) 
+
+permanova <- adonis(seq_table_rel_ab_tp_chunk_dff_late_int_raw ~ treatment_type, data = seq_table_rel_ab_tp_chunk_dff_late_int, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["treatment_type", "Pr(>F)"]
+```
+
+Find ASVs from probiotic supplement in participants
+```{r}
+ASV_labels_supp <- ASV_labels %>% 
+  filter(ASV %in% seq_table_supp_sum$ASV)
+
+seq_table_labels_filtSupp <- seq_table_labels %>% 
+  filter(ASV_label %in% ASV_labels_supp$ASV_label & count>0) %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")))
+
+#see proportion of participants that had the probiotic supplement during intervention
+ppt_supp_df <- seq_table_labels_filtSupp %>% 
+  filter(Timepoint %in% c(4:8)) %>% 
+  select(Participant,treatment_type,prob_response) %>% 
+  unique
+table(ppt_supp_df$prob_response)
+```
+
+
+
+
+Find differentially expressed ASVs when on probiotic and when not on probiotic
+```{r}
+ppt_seq_df <- data.frame(X.SampleID=rownames(ppt_seq_table),ppt_seq_table) %>% right_join(dplyr::select(ppt_labels,X.SampleID,type,Participant,Timepoint,treatment_type),.)
+
+ppt_seq_df_temp <- ppt_seq_df
+colnames(ppt_seq_df_temp) <- c(colnames(ppt_seq_df[,c(1:5)]),paste("ASV",c(1:(dim(ppt_seq_df)[2]-5)),sep="_"))
+
+ppt_seq_df_placebo <- dplyr::filter(ppt_seq_df_temp,treatment_type=="Placebo")
+ppt_seq_df_prbiotic_baseline <- dplyr::filter(ppt_seq_df_temp,treatment_type =="Probiotic") %>% dplyr::filter(.,Timepoint %in% c(1,2,3))
+
+# ppt_seq_df_noPROB <- bind_rows(ppt_seq_df_placebo,ppt_seq_df_prbiotic_baseline)
+# ppt_seq_df_yesPROB <- dplyr::filter(ppt_seq_df_temp,treatment_type =="Probiotic") %>% dplyr::filter(.,Timepoint %in% c(4,5,6,7,8))
+
+unpairedYSAM <- function(df1,df2){
+  y = c(rep(1,dim(df1)[1]),rep(2,dim(df2)[1]))
+  return(y)
+}
+
+unpairedXSAM <- function(df1,df2,startIDs,endIDs){
+  x1 = t(df1[-c(startIDs:endIDs)])
+  #print(head(x1))
+  x2 = t(df2[-c(startIDs:endIDs)])
+  #print(head(x2))
+  x_all <- cbind(x1,x2) 
+  #print(x_all)
+  return(x_all)
+}
+
+# siggenes_input_data <- unpairedXSAM(ppt_seq_df_noPROB,ppt_seq_df_yesPROB,1,5)
+# siggenes_input_cl <- unpairedYSAM(ppt_seq_df_noPROB,ppt_seq_df_yesPROB)
+# siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+# summary(siggenes_output)
+# 
+# delta_siggenes <- findDelta(siggenes_output, fdr = 0.01)
+# summary(siggenes_output,delta_siggenes[2])
+# ASVs_sigdiff <- list.siggenes(siggenes_output,delta_siggenes[2])
+# ASV_columns <- c(118,171,28,475,22,344,117)
+# sig_ASVs <- colnames(ppt_seq_table[,ASV_columns])
+# 
+# taxa_table_siggASVs <- subset(taxa_table, rownames(taxa_table) %in% sig_ASVs)
+# #None of the signicant
+# 
+# ppt_seq_df_placebo <- dplyr::filter(ppt_seq_df,treatment_type=="Placebo")
+# ppt_seq_df_prbiotic_baseline <- dplyr::filter(ppt_seq_df,treatment_type =="Probiotic") %>% dplyr::filter(.,Timepoint %in% c(1,2,3))
+# 
+# ppt_seq_df_noPROB <- bind_rows(ppt_seq_df_placebo,ppt_seq_df_prbiotic_baseline)
+# ppt_seq_df_yesPROB <- dplyr::filter(ppt_seq_df,treatment_type =="Probiotic") %>% dplyr::filter(.,Timepoint %in% c(4,5,6,7,8))
+# asvs_list <- colnames(dplyr::select(ppt_seq_df,-X.SampleID,-type,-Participant,-Timepoint,-treatment_type))
+# pValueList <- c()
+# for(i in asvs_list){
+#   test <- t.test(ppt_seq_df_noPROB[,i],ppt_seq_df_yesPROB[,i],paired = F)
+#   pVal=test$p.value
+#   pValueList <- c(pValueList,pVal)
+# }
+# asv_pvalues <- data.frame(ASV=asvs_list,pValue=pValueList,pValue_adj=p.adjust(pValueList,"BH"))
+
+# all_taxa_ab_noPROB$probiotic_type <- "No_probiotic"
+# all_taxa_ab_yesPROB$probiotic_type <- "Yes_probiotic"
+# all_taxa_ab_Prob_type <- bind_rows(all_taxa_ab_noPROB,all_taxa_ab_yesPROB) %>% tidyr::gather(.,key=Taxa,value=rel_ab,f__:s__Unassigned) %>% dplyr::filter(., Taxa %in% taxa_sigdiff)
+# 
+# ggplot(all_taxa_ab_Prob_type,aes(x=probiotic_type,y=rel_ab,fill=probiotic_type))+geom_boxplot()+scale_fill_manual(values=c("gray85","thistle"))+ labs(x = "Cohort",y="Relative Abundance",title = "Differentially Expressed Taxa",color="Human Cohort")+theme_classic()+facet_wrap(~Taxa,scales="free")
+```
+
+PCA on ASVS
+```{r}
+#end of intervention probiotic vs. placebo 
+ppt_seq_df_tp_8 <- filter(ppt_seq_df_temp,Timepoint==8) 
+asv_8_pca <- PCA(select(ppt_seq_df_tp_8,-c(X.SampleID:treatment_type)), graph = FALSE)
+fviz_pca_ind(asv_8_pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = ppt_seq_df_tp_8$treatment_type, # color by groups
+             palette = c("#00AFBB", "#E7B800"),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Groups"
+             )
+
+#baseline to end of intervention for probiotic group
+ppt_seq_df_1_8 <- filter(ppt_seq_df_temp,Timepoint %in% c(1,8) & treatment_type=="Probiotic") 
+asv_1_8_pca <- PCA(select(ppt_seq_df_1_8,-c(X.SampleID:treatment_type)), graph = FALSE)
+fviz_pca_ind(asv_1_8_pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = ppt_seq_df_1_8$Timepoint, # color by groups
+             palette = c("#00AFBB", "#E7B800"),
+             addEllipses = TRUE, # Concentration ellipses
+             legend.title = "Groups"
+             )
+
+
+
+ppt_seq_df <- na.omit(ppt_seq_df_temp)
+seq_table_pa <- decostand(select(ppt_seq_df,-c(X.SampleID:treatment_type)), "pa")
+jaccard_matrix <- vegdist(seq_table_pa, method="jaccard", binary=FALSE, diag=TRUE, upper=TRUE) 
+jaccard.bd <- betadisper(jaccard_matrix, ppt_seq_df$Participant,type="centroid")
+#Participant specific means
+avg_dist_centroid <- with(jaccard.bd, tapply(distances, ppt_seq_df$Participant, "mean")) %>% as.data.frame
+avg_dist_centroid <- data.frame(Participant=rownames(avg_dist_centroid),dist_centroid=avg_dist_centroid$.)
+anova(jaccard.bd)
+
+dist_asvs <- dist(select(ppt_seq_df_temp,-c(X.SampleID:treatment_type)), method = "euclidean", diag = FALSE, upper = FALSE, p = 2) %>% as.matrix %>% as.data.frame
+colnames(dist_asvs) <- ppt_seq_df_temp$X.SampleID
+rownames(dist_asvs) <- ppt_seq_df_temp$X.SampleID
+
+dist_asvs_flat <- mutate(dist_asvs,row_sampleID=rownames(dist_asvs)) %>% 
+  gather(key=col_sampleID,value=distance,-row_sampleID) 
+
+dst <- dist(select(ppt_seq_df_1_8,-c(X.SampleID:treatment_type)), method = "euclidean")
+iris.bd <- betadisper(dst, ppt_seq_df_1_8$Timepoint)
+anova(iris.bd)
+
+
+ppt_seq_df_1_8_resp <- filter(ppt_seq_df_1_8,Participant %in% probiotic_response_grp)
+dst <- dist(select(ppt_seq_df_1_8_resp,-c(X.SampleID:treatment_type)), method = "euclidean")
+iris.bd <- betadisper(dst, ppt_seq_df_1_8_resp$Timepoint)
+anova(iris.bd)
+```
+
+```{r}
+timebin_df <- data.frame(Timebin=c(rep("Baseline",3),rep("Maint",5),rep("Baseline",2)),Timepoint=c(1,2,3,4,5,6,7,8,9,10))
+ppt_seq_df_timeBin <- ppt_seq_df_temp %>% 
+  right_join(timebin_df,.) %>% 
+  na.omit() %>% 
+  mutate(Participant_timeBin=paste(Participant,Timebin,sep="_"))
+
+ps_tree_prune <- prune_samples(ppt_seq_df_timeBin$X.SampleID, ps_tree)
+metadf <- data.frame(sample_data(ps_tree_prune)) %>% 
+  select(SampleID,real_sampleID) %>% 
+  dplyr::rename(X.SampleID=SampleID) %>% 
+  left_join(.,select(ppt_seq_df_timeBin,Timebin:treatment_type,Participant_timeBin))
+
+unifrac.dist <- UniFrac(ps_tree_prune, 
+                        weighted = F, 
+                        normalized = TRUE,  
+                        parallel = FALSE, 
+                        fast = TRUE)
+
+unifracW.bd <- betadisper(unifrac.dist, metadf$Participant_timeBin,type="centroid")
+
+jaccard_avg_dist_centroid <- with(unifracW.bd, tapply(distances, metadf$Participant_timeBin, "mean")) %>% 
+  as.data.frame.table()
+colnames(jaccard_avg_dist_centroid) <- c("Participant_timeBin","Dist_centroid")
+jaccard_avg_dist_centroid <- jaccard_avg_dist_centroid %>% 
+  separate(Participant_timeBin,into=c("Participant","Time_bin")) %>% 
+  left_join(ppt_labels_unique,.) %>% 
+  na.omit()
+probiotic_response_grp <- c("7005","7017","7023","7012","7015","7001","7050","7018","7002","7041","7006","7047","7027")
+
+jaccard_avg_dist_centroid_prob <- filter(jaccard_avg_dist_centroid,treatment_type=="Probiotic") %>% 
+  mutate(resp_status=ifelse(Participant %in% probiotic_response_grp,"Responder","Non_Responder"))
+jaccard_avg_dist_centroid_plac <- filter(jaccard_avg_dist_centroid,treatment_type=="Placebo") %>% 
+  mutate(resp_status="Placebo")
+jaccard_avg_dist_centroid <- bind_rows(jaccard_avg_dist_centroid_prob,jaccard_avg_dist_centroid_plac)
+
+ggplot(jaccard_avg_dist_centroid,aes(x=Time_bin,y=Dist_centroid,fill=treatment_type))+geom_boxplot()+facet_wrap(~treatment_type)+theme_classic(base_size = 15)+ scale_fill_manual(values=c("gray85", "thistle4"))+ggtitle("Microbiome Dispersion in Response to Intervention")
+# ggsave("~/R/Project_Probiotic/Saved_Structures_Probiotics/jaccard_disp.pdf",width=8,height=7)
+ggplot(jaccard_avg_dist_centroid,aes(x=Time_bin,y=Dist_centroid))+geom_boxplot()+facet_wrap(~resp_status,scales="free")
+jaccard_avg_dist_centroid_spread <- spread(jaccard_avg_dist_centroid,key=Time_bin,value=Dist_centroid) %>% 
+  mutate(Dist_change=Maint-Baseline)
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Responder")$Baseline,filter(jaccard_avg_dist_centroid_spread,resp_status=="Responder")$Maint,paired=TRUE)
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Non_Responder")$Baseline,filter(jaccard_avg_dist_centroid_spread,resp_status=="Non_Responder")$Maint,paired=TRUE)
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Placebo")$Baseline,filter(jaccard_avg_dist_centroid_spread,resp_status=="Placebo")$Maint,paired=TRUE)
+```
+
+
+```{r}
+#calculate distance matrix between baseline and intervention timepoints for probiotic and placebo participants 
+##using p/a jaccard to see new species that emerge
+###can't subset the data BEFORE calculating distances - need to find distances within the same dimensional space
+
+#need to make a new column for participant and their timepoint
+ppt_seq_df_filt <- mutate(ppt_seq_df_temp,Participant_timeBin=ifelse(Timepoint %in% c(1,2,3),paste(Participant,"Baseline",sep="_"),paste(Participant,"Maint",sep="_"))) %>%
+  na.omit() %>% 
+  filter(Timepoint %in% c(1:8))
+
+timebin_df <- data.frame(Timebin=c(rep("Baseline",3),rep("Maint",5),rep("Washout",2)),Timepoint=c(1,2,3,4,5,6,7,8,9,10))
+ppt_seq_df_filt <- ppt_seq_df_temp %>% 
+  right_join(timebin_df,.) %>% 
+  na.omit() %>% 
+  mutate(Participant_timeBin=paste(Participant,Timebin,sep="_"))
+
+ppt_seq_df_temp_asv_only <- select(ppt_seq_df_filt,ASV_1:ASV_1759)
+ppt_seq_df_temp_pa <- decostand(ppt_seq_df_temp_asv_only, "pa")
+
+jaccard_matrix <- vegdist(ppt_seq_df_temp_pa, method="jaccard", binary=FALSE, diag=TRUE, upper=TRUE)
+jaccard.bd <- betadisper(jaccard_matrix, ppt_seq_df_filt$Participant_timeBin,type="centroid")
+
+jaccard_avg_dist_centroid <- with(jaccard.bd, tapply(distances, ppt_seq_df_filt$Participant_timeBin, "mean")) %>% 
+  as.data.frame.table()
+colnames(jaccard_avg_dist_centroid) <- c("Participant_timeBin","Dist_centroid")
+jaccard_avg_dist_centroid <- jaccard_avg_dist_centroid %>% 
+  separate(Participant_timeBin,into=c("Participant","Time_bin")) %>% 
+  left_join(ppt_labels_unique,.) %>% 
+  na.omit()
+probiotic_response_grp <- c("7005","7017","7023","7012","7015","7001","7050","7018","7002","7041","7006","7047","7027")
+
+jaccard_avg_dist_centroid_prob <- filter(jaccard_avg_dist_centroid,treatment_type=="Probiotic") %>% 
+  mutate(resp_status=ifelse(Participant %in% probiotic_response_grp,"Responder","Non_Responder"))
+jaccard_avg_dist_centroid_plac <- filter(jaccard_avg_dist_centroid,treatment_type=="Placebo") %>% 
+  mutate(resp_status="Placebo")
+jaccard_avg_dist_centroid <- bind_rows(jaccard_avg_dist_centroid_prob,jaccard_avg_dist_centroid_plac)
+
+ggplot(jaccard_avg_dist_centroid,aes(x=Time_bin,y=Dist_centroid,fill=treatment_type))+geom_boxplot()+facet_wrap(~treatment_type)+theme_classic(base_size = 15)+ scale_fill_manual(values=c("gray85", "thistle4"))+ggtitle("Microbiome Dispersion in Response to Intervention")
+# ggsave("~/R/Project_Probiotic/Saved_Structures_Probiotics/jaccard_disp.pdf",width=8,height=7)
+ggplot(jaccard_avg_dist_centroid,aes(x=Time_bin,y=Dist_centroid))+geom_boxplot()+facet_wrap(~resp_status,scales="free")
+
+jaccard_avg_dist_centroid_spread <- spread(jaccard_avg_dist_centroid,key=Time_bin,value=Dist_centroid) %>% 
+  mutate(Dist_change=Maint-Baseline)
+
+#base vs. maint for probiotic vs. placebo
+t.test(filter(jaccard_avg_dist_centroid_spread,treatment_type=="Probiotic")$Baseline,filter(jaccard_avg_dist_centroid_spread,treatment_type=="Probiotic")$Maint,paired=TRUE)
+t.test(filter(jaccard_avg_dist_centroid_spread,treatment_type=="Placebo")$Baseline,filter(jaccard_avg_dist_centroid_spread,treatment_type=="Placebo")$Maint,paired=TRUE)
+
+#probiotic vs. placebo at baseline and maint
+t.test(filter(jaccard_avg_dist_centroid_spread,treatment_type=="Probiotic")$Maint,filter(jaccard_avg_dist_centroid_spread,treatment_type=="Placebo")$Maint,paired=F)
+t.test(filter(jaccard_avg_dist_centroid_spread,treatment_type=="Probiotic")$Baseline,filter(jaccard_avg_dist_centroid_spread,treatment_type=="Placebo")$Baseline,paired=F)
+t.test(filter(jaccard_avg_dist_centroid_spread,treatment_type=="Probiotic")$Dist_change,filter(jaccard_avg_dist_centroid_spread,treatment_type=="Placebo")$Dist_change,paired=F)
+
+#Baseline vs. maint for responders vs. non-responders
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Non_Responder")$Maint,filter(jaccard_avg_dist_centroid_spread,resp_status=="Responder")$Maint,paired=F)
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Non_Responder")$Baseline,filter(jaccard_avg_dist_centroid_spread,resp_status=="Responder")$Baseline,paired=F)
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Non_Responder")$Dist_change,filter(jaccard_avg_dist_centroid_spread,resp_status=="Responder")$Dist_change,paired=F)
+
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Responder")$Baseline,filter(jaccard_avg_dist_centroid_spread,resp_status=="Responder")$Maint,paired=TRUE)
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Non_Responder")$Baseline,filter(jaccard_avg_dist_centroid_spread,resp_status=="Non_Responder")$Maint,paired=TRUE)
+t.test(filter(jaccard_avg_dist_centroid_spread,resp_status=="Placebo")$Baseline,filter(jaccard_avg_dist_centroid_spread,resp_status=="Placebo")$Maint,paired=TRUE)
+```
+
+With bray curtis and asv counts
+```{r}
+#calculate distance matrix between baseline and intervention timepoints for probiotic and placebo participants 
+##using p/a jaccard to see new species that emerge
+base_bray_matrix <- vegdist(select(ppt_seq_df_temp_base,-c(X.SampleID:treatment_type)), method="bray", binary=FALSE, diag=TRUE, upper=TRUE) 
+maint_bray_matrix <- vegdist(select(ppt_seq_df_temp_maint,-c(X.SampleID:treatment_type)), method="bray", binary=FALSE, diag=TRUE, upper=TRUE) 
+
+bray.bd_base <- betadisper(base_bray_matrix, ppt_seq_df_temp_base$Participant,type="centroid")
+bray.bd_maint <- betadisper(maint_bray_matrix, ppt_seq_df_temp_maint$Participant,type="centroid")
+
+bray_avg_dist_centroid_base <- with(bray.bd_base, tapply(distances, ppt_seq_df_temp_base$Participant, "mean")) %>% 
+  as.data.frame.table()
+colnames(bray_avg_dist_centroid_base) <- c("Participant","Baseline_dist_centroid")
+bray_avg_dist_centroid_maint <- with(bray.bd_maint, tapply(distances, ppt_seq_df_temp_maint$Participant, "mean")) %>% 
+  as.data.frame.table()
+colnames(bray_avg_dist_centroid_maint) <- c("Participant","Maint_dist_centroid")
+
+bray_avg_dist_centroid <- right_join(bray_avg_dist_centroid_base,bray_avg_dist_centroid_maint) %>% 
+  filter(Maint_dist_centroid != 0) %>% #0 distances have only one sample in the intervention timepoint
+  left_join(ppt_labels_unique,.) %>% 
+  na.omit()
+
+bray_avg_dist_centroid_probiotic <- filter(bray_avg_dist_centroid,treatment_type=="Probiotic") %>% 
+  mutate(resp_status=ifelse(Participant %in% probiotic_response_grp,"Responder","Non_Responder"))
+bray_avg_dist_centroid_placebo <- filter(avg_dist_centroid,treatment_type=="Placebo") %>% 
+  mutate(resp_status="Placebo")
+bray_avg_dist_centroid <- bind_rows(bray_avg_dist_centroid_probiotic,bray_avg_dist_centroid_placebo)
+
+bray_avg_dist_centroid_gather <- gather(bray_avg_dist_centroid,key=Timepoint_bin,value=distance,Baseline_dist_centroid:Maint_dist_centroid)
+ggplot(bray_avg_dist_centroid_gather,aes(x=Timepoint_bin,y=distance))+geom_boxplot()+facet_wrap(~treatment_type,scales="free")
+ggplot(bray_avg_dist_centroid_gather,aes(x=Timepoint_bin,y=distance))+geom_boxplot()+facet_wrap(~resp_status,scales="free")
+
+t.test(filter(bray_avg_dist_centroid,resp_status=="Responder")$Baseline_dist_centroid,filter(bray_avg_dist_centroid,resp_status=="Responder")$Maint_dist_centroid,paired=TRUE)
+t.test(filter(bray_avg_dist_centroid,resp_status=="Non_Responder")$Baseline_dist_centroid,filter(bray_avg_dist_centroid,resp_status=="Non_Responder")$Maint_dist_centroid,paired=TRUE)
+t.test(filter(bray_avg_dist_centroid,resp_status=="Placebo")$Baseline_dist_centroid,filter(bray_avg_dist_centroid,resp_status=="Placebo")$Maint_dist_centroid,paired=TRUE)
+
+t.test(filter(bray_avg_dist_centroid,resp_status=="Responder")$Baseline_dist_centroid,filter(bray_avg_dist_centroid,resp_status=="Non_Responder")$Baseline_dist_centroid,paired=F)
+t.test(filter(bray_avg_dist_centroid,resp_status=="Responder")$Maint_dist_centroid,filter(bray_avg_dist_centroid,resp_status=="Non_Responder")$Maint_dist_centroid,paired=F)
+t.test(filter(bray_avg_dist_centroid,resp_status=="Responder")$Maint_dist_centroid,filter(bray_avg_dist_centroid,resp_status=="Placebo")$Maint_dist_centroid,paired=F)
+```
+
+Unifrac
+```{r}
+
+metadf <- data.frame(sample_data(ps_tree)) %>% 
+  dplyr::rename(X.SampleID=SampleID) %>% 
+  left_join(.,select(ppt_seq_df_temp,X.SampleID,Participant,treatment_type)) %>% 
+  select(X.SampleID,Participant,treatment_type) %>% 
+  left_join(.,select(avg_dist_centroid,Participant,treatment_type,resp_status))
+
+unifrac.dist <- UniFrac(ps_tree, 
+                        weighted = TRUE, 
+                        normalized = TRUE,  
+                        parallel = FALSE, 
+                        fast = TRUE)
+
+permanova <- adonis(unifrac.dist ~ scientific_name, data = metadf)
+
+permanova
+```
+
+
+Find the ASVs zero at all baseline timepoints and nonzero at each of the maintenance timepoints
+```{r}
+ppt_seq_df_baseline <- dplyr::filter(ppt_seq_df,Timepoint %in% c(1,2,3))
+ppt_baseline_sums <- data.frame(ASV = colnames(dplyr::select(ppt_seq_df_baseline,-X.SampleID,-type,-Participant,-Timepoint,-treatment_type)),col_sum_ppt_baseline = colSums(dplyr::select(ppt_seq_df_baseline,-X.SampleID,-type,-Participant,-Timepoint,-treatment_type)))
+ppt_baseline_asv_zero <- droplevels(dplyr::filter(ppt_baseline_sums,col_sum_ppt_baseline==0)$ASV)
+
+ppt_seq_df_gather <- tidyr::gather(ppt_seq_df,key=ASV,value=Abundance,-X.SampleID,-type,-Participant,-Timepoint,-treatment_type)
+
+ppt_seq_df_gather_maint <- dplyr::filter(ppt_seq_df_gather,Timepoint %in% c(4,5,6,7,8,9,10))
+#Filter the maintenance ASV abundances to only those that are zero at baseline
+ppt_seq_df_gather_maint_filt <- dplyr::filter(ppt_seq_df_gather_maint, ASV %in% ppt_baseline_asv_zero) %>% dplyr::filter(.,Abundance!=0)
+
+dim(ppt_seq_df_gather_maint_filt)[1] #number of new ASVs in the total study (both groups) = 565
+dim(dplyr::filter(ppt_seq_df_gather_maint_filt,treatment_type=="Probiotic"))[1] #number of new ASVs in the probiotic cohort = 421
+dim(dplyr::filter(ppt_seq_df_gather_maint_filt,treatment_type=="Placebo"))[1]#number of new ASVs in the placebo cohort = 144
+
+ppt_seq_df_gather_maint_probiotic <- dplyr::filter(ppt_seq_df_gather_maint_filt,treatment_type=="Probiotic")
+ppt_seq_df_gather_maint_placebo <- dplyr::filter(ppt_seq_df_gather_maint_filt,treatment_type=="Placebo")
+
+probiotic_counts_df <- c()
+placebo_counts_df <- c()
+counts_pValue <- c()
+for(tp in c(4,5,6,7,8,9,10)){
+  df_probiotic_tp <- dplyr::filter(ppt_seq_df_gather_maint_probiotic,Timepoint==tp)
+  df_placebo_tp <- dplyr::filter(ppt_seq_df_gather_maint_placebo,Timepoint==tp)
+  probiotic_counts <- data.frame(Timepoint=c(rep(tp,length(table(df_probiotic_tp$Participant)))),table(df_probiotic_tp$Participant))
+  placebo_counts <- data.frame(Timepoint=c(rep(tp,length(table(df_placebo_tp$Participant)))),table(df_placebo_tp$Participant))
+  p_value <- t.test(probiotic_counts$Freq,placebo_counts$Freq)$p.value
+  counts_pValue <- c(counts_pValue,p_value)
+  probiotic_counts_df <- bind_rows(probiotic_counts_df,probiotic_counts)
+  placebo_counts_df <- bind_rows(placebo_counts_df,placebo_counts)
+}
+probiotic_counts_df$treatment_type <- "Probiotic"
+placebo_counts_df$treatment_type <- "Placebo"
+
+probiotic_counts_df$Timepoint <- as.factor(probiotic_counts_df$Timepoint)
+placebo_counts_df$Timepoint <- as.factor(placebo_counts_df$Timepoint)
+
+all_counts_df <- bind_rows(probiotic_counts_df,placebo_counts_df)
+
+all_counts_df$Timepoint %<>% as.factor
+all_counts_df$Timepoint <- factor(all_counts_df$Timepoint,levels=c(4,5,6,7,8,9,10))
+ggplot(all_counts_df,aes(x=Timepoint,y=Freq,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+all_counts_df$Timepoint %<>% as.character
+all_counts_df_spread <- spread(all_counts_df,key=Timepoint,value=Freq)
+all_counts_df_spread[is.na(all_counts_df_spread)] <- 0
+
+all_counts_df_spread_prob <- filter(all_counts_df_spread, treatment_type=="Probiotic")
+all_counts_df_spread_plac <- filter(all_counts_df_spread, treatment_type=="Placebo")
+
+tp_list <- c("4","5","6","7","8","9","10")
+pValueList <- c()
+for (i in tp_list){
+  test <- t.test(all_counts_df_spread_prob[,i],all_counts_df_spread_plac[,i],paired=F)
+  pVal=test$p.value
+  pValueList <- c(pValueList,pVal)
+}
+new_asvs_pvalues <- data.frame(type_colname=tp_list,p_value=pValueList,p_value_adj=p.adjust(pValueList,method="BH"))
+```
+
+We really need to do this by participant.
+-what ASVs are zero for each participant at baseline (tp 1,2,3)
+-how many do they gain at each timepoint 
+*Note that these numbers will be larger than the ASVs gained above because since they are participant specific, there will be repeat ASVs among participants
+```{r}
+ppt_list <- unique(ppt_seq_df$Participant)
+asv_gained_df <- c()
+for(ppt in ppt_list){
+  ppt_df <- dplyr::filter(ppt_seq_df,Participant==ppt)
+  ppt_seq_df_baseline <- dplyr::filter(ppt_df,Timepoint %in% c(1,2,3))
+  ppt_baseline_sums <- data.frame(ASV = colnames(dplyr::select(ppt_seq_df_baseline,-X.SampleID,-type,-Participant,-Timepoint,-treatment_type)),col_sum_ppt_baseline = colSums(dplyr::select(ppt_seq_df_baseline,-X.SampleID,-type,-Participant,-Timepoint,-treatment_type)))
+  ppt_baseline_asv_zero <- droplevels(dplyr::filter(ppt_baseline_sums,col_sum_ppt_baseline==0)$ASV)
+  
+  ppt_seq_df_gather <- tidyr::gather(ppt_df,key=ASV,value=Abundance,-X.SampleID,-type,-Participant,-Timepoint,-treatment_type)
+  ppt_seq_df_gather_maint <- dplyr::filter(ppt_seq_df_gather,Timepoint %in% c(4,5,6,7,8,9,10))
+  ppt_seq_df_gather_maint_filt <- dplyr::filter(ppt_seq_df_gather_maint, ASV %in% ppt_baseline_asv_zero) %>% dplyr::filter(.,Abundance!=0)
+  asv_gained_df <- bind_rows(asv_gained_df,ppt_seq_df_gather_maint_filt)
+}
+
+asv_gained_df$Timepoint <- as.numeric(as.character(asv_gained_df$Timepoint)) 
+asv_gained_probiotic <- dplyr::filter(asv_gained_df,treatment_type=="Probiotic")
+asv_gained_placebo <- dplyr::filter(asv_gained_df,treatment_type=="Placebo")
+
+asv_gained_aggregate_counts <- aggregate(asv_gained_df$Abundance,by=list(asv_gained_df$Participant,asv_gained_df$Timepoint,asv_gained_df$treatment_type),FUN=sum)
+colnames(asv_gained_aggregate_counts) <- c("Participant","Timepoint","treatment_type","ASV_Abundance_Count")
+asv_gained_aggregate_counts$Timepoint <- factor(asv_gained_aggregate_counts$Timepoint,levels=c(4,5,6,7,8,9,10))
+ggplot(asv_gained_aggregate_counts,aes(x=Timepoint,y=ASV_Abundance_Count,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+asv_gained_aggregate_counts_ppt <- aggregate(asv_gained_aggregate_counts$ASV_Abundance_Count,by=list(asv_gained_aggregate_counts$Participant,asv_gained_aggregate_counts$treatment_type),FUN=sum)
+colnames(asv_gained_aggregate_counts_ppt) <- c("Participant","treatment_type","ASV_Abundance_Count")
+ggplot(asv_gained_aggregate_counts_ppt,aes(x=treatment_type,y=ASV_Abundance_Count,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+t.test(filter(asv_gained_aggregate_counts_ppt,treatment_type=="Probiotic")$ASV_Abundance_Count,filter(asv_gained_aggregate_counts_ppt,treatment_type=="Placebo")$ASV_Abundance_Count)
+
+asv_gained_probiotic_supp <- filter(asv_gained_probiotic,ASV %in% supplement_asvs) #of the new ASVs per ppt, 26 instances of them were in the Probiotic Supplement ~0.1%
+asv_gained_probiotic_NOTsupp <- filter(asv_gained_probiotic,!(ASV %in% supplement_asvs))
+asv_gained_placebo_supp <- filter(asv_gained_placebo,ASV %in% supplement_asvs)#of the new ASVs per ppt, 2 of them were in the Probiotic Supplement ~0.01%
+asv_gained_placebo_NOTsupp <- filter(asv_gained_placebo,!(ASV %in% supplement_asvs))
+
+#ppt_seq_df_gather_maint_filt_suppProb$ASV_source <- with(ppt_seq_df_gather_maint_filt, ifelse(ASV %in% supplement_asvs, "Probiotic_Supp", "Other"))
+
+
+probiotic_counts_df <- c()
+placebo_counts_df <- c()
+counts_pValue <- c()
+for(tp in c(4,5,6,7,8,9,10)){
+  df_probiotic_tp <- dplyr::filter(asv_gained_probiotic,Timepoint==tp)
+  df_placebo_tp <- dplyr::filter(asv_gained_placebo,Timepoint==tp)
+  probiotic_counts <- data.frame(Timepoint=c(rep(tp,length(table(df_probiotic_tp$Participant)))),table(df_probiotic_tp$Participant))
+  placebo_counts <- data.frame(Timepoint=c(rep(tp,length(table(df_placebo_tp$Participant)))),table(df_placebo_tp$Participant))
+  p_value <- t.test(probiotic_counts$Freq,placebo_counts$Freq,paired=F)$p.value
+  counts_pValue <- c(counts_pValue,p_value)
+  probiotic_counts_df <- bind_rows(probiotic_counts_df,probiotic_counts)
+  placebo_counts_df <- bind_rows(placebo_counts_df,placebo_counts)
+}
+probiotic_counts_df$treatment_type <- "Probiotic"
+placebo_counts_df$treatment_type <- "Placebo"
+
+t.test(probiotic_counts_df$Freq,placebo_counts_df$Freq) #I don't think this is good because mult tps with same ppt are treated as independent
+asv_gained_perPPT <- bind_rows(probiotic_counts_df,placebo_counts_df)
+
+#Calculate the sum of new ASVs across all time points for each participant
+asv_gained_perPPT_maint <- filter(asv_gained_perPPT,Timepoint %in% c(4,5,6,7,8))
+asv_gained_perPPT_aggregate <- aggregate(asv_gained_perPPT_maint$Freq,by=list(asv_gained_perPPT_maint$Var1,asv_gained_perPPT_maint$treatment_type),FUN=sum)
+colnames(asv_gained_perPPT_aggregate) <- c("Participant","treatment_type","tot_asvs_gained")
+asv_gained_perPPT_aggregate_prob <- filter(asv_gained_perPPT_aggregate,treatment_type=="Probiotic") 
+asv_gained_perPPT_aggregate_plac <- filter(asv_gained_perPPT_aggregate,treatment_type=="Placebo") 
+ggplot(asv_gained_perPPT_aggregate,aes(x=treatment_type,y=tot_asvs_gained,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+t.test(asv_gained_perPPT_aggregate_prob$tot_asvs_gained,asv_gained_perPPT_aggregate_plac$tot_asvs_gained) #total ASVS gained per participant, summed across all timepoints - not stat sig, pvalue = 0.07
+
+asv_gained_perPPT$Timepoint <- as.numeric(as.character(asv_gained_perPPT$Timepoint))
+cor.test(dplyr::filter(asv_gained_perPPT,treatment_type=="Probiotic")$Timepoint,dplyr::filter(asv_gained_perPPT,treatment_type=="Probiotic")$Freq)
+cor.test(dplyr::filter(asv_gained_perPPT,treatment_type=="Placebo")$Timepoint,dplyr::filter(asv_gained_perPPT,treatment_type=="Placebo")$Freq)
+
+#Plot ASVs gained per participant over time
+asv_gained_perPPT$Timepoint <- as.factor(asv_gained_perPPT$Timepoint)
+ggplot(asv_gained_perPPT,aes(x=treatment_type,y=Freq,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+ggplot(asv_gained_perPPT,aes(x=Timepoint,y=Freq,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+#Unpaired t test for ASVs gained per participant at each time point
+probiotic_counts_df$Timepoint %<>% as.character
+placebo_counts_df$Timepoint %<>% as.character
+
+probiotic_counts_df_spread <- spread(probiotic_counts_df,key=Timepoint,value=Freq)
+probiotic_counts_df_spread[is.na(probiotic_counts_df_spread)] <- 0
+placebo_counts_df_spread <- spread(placebo_counts_df,key=Timepoint,value=Freq)
+placebo_counts_df_spread[is.na(placebo_counts_df_spread)] <- 0
+
+tp_list <- c("4","5","6","7","8","9","10")
+pValueList <- c()
+for (i in tp_list){
+  test <- t.test(probiotic_counts_df_spread[,i],placebo_counts_df_spread[,i],paired=F)
+  pVal=test$p.value
+  pValueList <- c(pValueList,pVal)
+}
+new_asvs_per_tp_pvalues <- data.frame(type_colname=tp_list,p_value=pValueList,p_value_adj=p.adjust(pValueList,method="BH"))
+
+
+```
+
+```{r}
+#filter probiotic group to only those who responded well from the lipids data
+probiotic_response_grp <- c("7005","7017","7023","7012","7015","7001","7050","7018","7002","7041","7006","7047","7027")
+probiotic_counts_df_resp <- dplyr::filter(probiotic_counts_df,Var1 %in% probiotic_response_grp)
+probiotic_counts_df_resp_maint <- filter(probiotic_counts_df_resp, Timepoint %in% c(4,5,6,7,8))
+probiotic_counts_df_resp_maint_aggregate <- aggregate(probiotic_counts_df_resp_maint$Freq,by=list(probiotic_counts_df_resp_maint$Var1,probiotic_counts_df_resp_maint$treatment_type),FUN=sum)
+colnames(probiotic_counts_df_resp_maint_aggregate) <- c("Participant","treatment_type","tot_asvs_gained")
+#aggreagate counts per participant in probiotic repsonders vs. placebo - not significant
+t.test(probiotic_counts_df_resp_maint_aggregate$tot_asvs_gained,asv_gained_perPPT_aggregate_plac$tot_asvs_gained)
+
+
+asv_gained_perPPT_probresp <- bind_rows(probiotic_counts_df_resp,placebo_counts_df)
+asv_gained_perPPT_probresp$Timepoint <- factor(asv_gained_perPPT_probresp$Timepoint,levels=c(4,5,6,7,8,9,10))
+ggplot(asv_gained_perPPT_probresp,aes(x=Timepoint,y=Freq,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+#Filter to participants that received one of the ASVs
+probiotic_counts_df_suppASV <- dplyr::filter(probiotic_counts_df,Var1 %in% ASV1_2_ppts)
+probiotic_counts_df_suppASV$Timepoint %<>% as.factor
+placebo_counts_df$Timepoint %<>% as.factor
+
+asv_gained_perPPT_suppASV <- bind_rows(probiotic_counts_df_suppASV,placebo_counts_df)
+
+asv_gained_perPPT_suppASV$Timepoint %<>% as.character
+probiotic_counts_df_spread_suppASV <- filter(asv_gained_perPPT_suppASV,treatment_type=="Probiotic") %>% spread(key=Timepoint,value=Freq)
+probiotic_counts_df_spread_suppASV[is.na(probiotic_counts_df_spread_suppASV)] <- 0 
+
+tp_list <- c("4","5","6","7","8","9","10")
+pValueList <- c()
+for (i in tp_list){
+  test <- t.test(probiotic_counts_df_spread_suppASV[,i],placebo_counts_df_spread[,i],paired=F)
+  pVal=test$p.value
+  pValueList <- c(pValueList,pVal)
+}
+new_asvs_suppASVs_pvalues <- data.frame(type_colname=tp_list,p_value=pValueList,p_value_adj=p.adjust(pValueList,method="BH"))
+
+asv_gained_perPPT_suppASV_maint <- filter(asv_gained_perPPT_suppASV,Timepoint %in% c(4,5,6,7,8))
+asv_gained_perPPT_suppASV_maint_aggregate <- aggregate(asv_gained_perPPT_suppASV_maint$Freq,by=list(asv_gained_perPPT_suppASV_maint$Var1,asv_gained_perPPT_suppASV_maint$treatment_type),FUN=sum)
+colnames(asv_gained_perPPT_suppASV_maint_aggregate) <- c("Participant","treatment_type","tot_asvs_gained")
+#aggregate t test of ppts that got asvs in the probiotic vs. placebo 
+##SIGG - pvalue = 0.017
+t.test(filter(asv_gained_perPPT_suppASV_maint_aggregate,treatment_type=="Probiotic")$tot_asvs_gained,filter(asv_gained_perPPT_suppASV_maint_aggregate,treatment_type=="Placebo")$tot_asvs_gained)
+
+#aggregate t test of ppts that got asvs in the probiotic vs. ppts that did not receive ASVs in probiotic group
+## this is NOT significant
+asv_gained_perPPT_aggregate_prob_recSuppASV <- filter(asv_gained_perPPT_aggregate_prob,Participant %in% ASV1_2_ppts) %>% mutate(Group="Probiotic_rec_ASVs")
+asv_gained_perPPT_aggregate_prob_NOTrecSuppASV <- filter(asv_gained_perPPT_aggregate_prob,!(Participant %in% ASV1_2_ppts)) %>% mutate(Group="Probiotic_NOT_rec_ASVs")
+t.test(asv_gained_perPPT_aggregate_prob_recSuppASV$tot_asvs_gained,asv_gained_perPPT_aggregate_prob_NOTrecSuppASV$tot_asvs_gained)
+asv_gained_perPPT_aggregate_plac <- mutate(asv_gained_perPPT_aggregate_plac,Group="Placebo")
+asv_gained_perPPT_aggregate_recSuppASV_all <- bind_rows(asv_gained_perPPT_aggregate_prob_recSuppASV,asv_gained_perPPT_aggregate_prob_NOTrecSuppASV,asv_gained_perPPT_aggregate_plac)
+
+ggplot(asv_gained_perPPT_aggregate_recSuppASV_all,aes(x=Group,y=tot_asvs_gained,fill=Group))+geom_boxplot()
+ggplot(filter(asv_gained_perPPT_aggregate_recSuppASV_all,Group!="Probiotic_NOT_rec_ASVs"),aes(x=Group,y=tot_asvs_gained,fill=Group))+geom_boxplot()+ scale_fill_manual(values=c("gray85","thistle4"))+theme_classic()
+
+asv_gained_perPPT_suppASV_maint$Timepoint <- as.numeric(as.character(asv_gained_perPPT_suppASV_maint$Timepoint))
+cor.test(dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Probiotic")$Timepoint,dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Probiotic")$Freq)
+cor.test(dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Placebo")$Timepoint,dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Placebo")$Freq)
+
+
+asv_gained_perPPT_suppASV$Timepoint <- as.factor(asv_gained_perPPT_suppASV$Timepoint) %>% factor(levels=c(4,5,6,7,8,9,10))
+ggplot(asv_gained_perPPT_suppASV,aes(x=treatment_type,y=Freq,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+ggplot(asv_gained_perPPT_suppASV,aes(x=Timepoint,y=Freq,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+asv_gained_perPPT_suppASV_maint$Timepoint %<>% as.factor
+ggplot(asv_gained_perPPT_suppASV_maint,aes(x=Timepoint,y=Freq,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+```
+
+The pearson corr coef are not sig different
+```{r}
+cor.diff.test = function(x1, x2, y1, y2, method="pearson") {
+  cor1 = cor.test(x1, x2, method=method)
+  cor2 = cor.test(y1, y2, method=method)
+
+  r1 = cor1$estimate
+  r2 = cor2$estimate
+  n1 = sum(complete.cases(x1, x2))
+  n2 = sum(complete.cases(y1, y2))
+  fisher = ((0.5*log((1+r1)/(1-r1)))-(0.5*log((1+r2)/(1-r2))))/((1/(n1-3))+(1/(n2-3)))^0.5
+
+  p.value = (2*(1-pnorm(abs(fisher))))
+
+  result= list(
+    "cor1" = list(
+      "estimate" = as.numeric(cor1$estimate),
+      "p.value" = cor1$p.value,
+      "n" = n1
+    ),
+    "cor2" = list(
+      "estimate" = as.numeric(cor2$estimate),
+      "p.value" = cor2$p.value,
+      "n" = n2
+    ),
+    "p.value.twosided" = as.numeric(p.value),
+    "p.value.onesided" = as.numeric(p.value) / 2
+  )
+  cat(paste(sep="",
+          "cor1: r=", format(result$cor1$estimate, digits=3), ", p=", format(result$cor1$p.value, digits=3), ", n=", result$cor1$n, "\n",
+          "cor2: r=", format(result$cor2$estimate, digits=3), ", p=", format(result$cor2$p.value, digits=3), ", n=", result$cor2$n, "\n",
+          "diffence: p(one-sided)=", format(result$p.value.onesided, digits=3), ", p(two-sided)=", format(result$p.value.twosided, digits=3), "\n"
+  ))
+  return(result);
+}
+
+cor.diff.test(x1=dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Probiotic")$Timepoint, x2=dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Probiotic")$Freq, y1=dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Placebo")$Timepoint, y2=dplyr::filter(asv_gained_perPPT_suppASV_maint,treatment_type=="Placebo")$Freq, method="pearson")
+```
+
+Normalize by the total number of species in the gut (observed alpha diversity) at each of the Maintenance timepoints
+```{r}
+samdf_diversity <- readRDS(file =  "~/user_data/ProbioticStudy_16S/saved_rds/Probiotic_diversity_all.rds") %>% na.omit() %>% select(Participant,Timepoint,treatment_type,Observed)
+
+samdf_diversity_aggregate <- aggregate(samdf_diversity$Observed,by=list(samdf_diversity$Participant,samdf_diversity$treatment_type),FUN=sum)
+colnames(samdf_diversity_aggregate) <- c("Participant","treatment_type","Observed_sum")
+ggplot(samdf_diversity_aggregate,aes(x=treatment_type,y=Observed_sum,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+
+
+colnames(all_counts_df) <- c("Timepoint","Participant","new_ASVs","treatment_type")
+all_counts_diversity_df <- left_join(all_counts_df,samdf_diversity) %>% mutate(percent_new=new_ASVs/Observed)
+ggplot(all_counts_diversity_df,aes(x=treatment_type,y=percent_new,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+all_counts_diversity_df_probiotic <- filter(all_counts_diversity_df,treatment_type=="Probiotic")
+all_counts_diversity_df_placebo <- filter(all_counts_diversity_df,treatment_type=="Placebo")
+
+all_counts_diversity_df_probiotic_recASVs <- filter(all_counts_diversity_df_probiotic,Participant %in% ASV1_2_ppts)
+all_counts_diversity_df_probiotic_resp <- filter(all_counts_diversity_df_probiotic,Participant %in% probiotic_response_grp)
+
+#Percent new probiotic vs. placebo
+t.test(filter(all_counts_diversity_df,treatment_type=="Probiotic")$percent_new,filter(all_counts_diversity_df,treatment_type=="Placebo")$percent_new)
+#percent new probiotic ASV rec vs. placebo - significant p value = 0.04
+t.test(all_counts_diversity_df_probiotic_recASVs$percent_new,filter(all_counts_diversity_df,treatment_type=="Placebo")$percent_new)
+#percent new probiotic response vs. placebo
+t.test(all_counts_diversity_df_probiotic_resp$percent_new,filter(all_counts_diversity_df,treatment_type=="Placebo")$percent_new)
+
+all_counts_diversity_df_probiotic_recASVs$Timepoint <- factor(all_counts_diversity_df_probiotic_recASVs$Timepoint,levels=c(4,5,6,7,8,9,10))
+all_counts_diversity_df_placebo$Timepoint <- factor(all_counts_diversity_df_placebo$Timepoint,levels=c(4,5,6,7,8,9,10))
+ggplot(bind_rows(all_counts_diversity_df_probiotic_recASVs,all_counts_diversity_df_placebo),aes(x=Timepoint,y=percent_new,fill=treatment_type))+geom_boxplot()+theme_classic()+ scale_fill_manual(values=c("gray85","thistle4"))
+
+all_counts_diversity_df_probiotic_recASVs_spread <- select(all_counts_diversity_df_probiotic_recASVs,Participant, treatment_type,Timepoint,percent_new) %>% spread(key=Timepoint,value=percent_new)
+all_counts_diversity_df_probiotic_recASVs_spread[is.na(all_counts_diversity_df_probiotic_recASVs_spread)] <- 0
+all_counts_diversity_df_placebo_spread <- select(all_counts_diversity_df_placebo,Participant, treatment_type,Timepoint,percent_new) %>% spread(key=Timepoint,value=percent_new)
+all_counts_diversity_df_placebo_spread[is.na(all_counts_diversity_df_placebo_spread)] <- 0
+
+tp_list <- factor(c(4,5,6,7,8,9,10))
+pValueList <- c()
+for (i in tp_list){
+  test <- t.test(all_counts_diversity_df_probiotic_recASVs_spread[,i],all_counts_diversity_df_placebo_spread[,i],paired=F)
+  pVal=test$p.value
+  pValueList <- c(pValueList,pVal)
+}
+percent_new_asvs_ASV_rec_pvalues <- data.frame(type_colname=tp_list,p_value=pValueList,p_value_adj=p.adjust(pValueList,method="BH"))
+```
+
+```{r}
+
+asv_gained_df_agg_perPPT <- select(asv_gained_df,Participant,Timepoint,treatment_type,ASV,Abundance) %>% filter(Timepoint %in% c(4,5,6,7,8))
+asv_gained_df_agg_perPPT <- aggregate(asv_gained_df_agg_perPPT$Abundance,by=list(asv_gained_df_agg_perPPT$Participant,asv_gained_df_agg_perPPT$treatment_type,asv_gained_df_agg_perPPT$ASV),FUN=sum)
+colnames(asv_gained_df_agg_perPPT) <- c("Participant","treatment_type","ASV","ASV_ab_sum")
+
+asv_gained_df_agg_perPPT_spread <- spread(asv_gained_df_agg_perPPT,key=ASV,value=ASV_ab_sum)
+asv_gained_df_agg_perPPT_spread[is.na(asv_gained_df_agg_perPPT_spread)] <- 0
+
+asv_gained_df_agg_perPPT_spread_HM <- dplyr::select(asv_gained_df_agg_perPPT_spread,-Participant,-treatment_type) %>% as.matrix(.) 
+asv_gained_df_agg_perPPT_spread_HM[asv_gained_df_agg_perPPT_spread_HM!=0]<-1
+rownames(asv_gained_df_agg_perPPT_spread_HM) <- paste0(asv_gained_df_agg_perPPT_spread$Participant,asv_gained_df_agg_perPPT_spread$treatment_type,sep="_")
+
+asv_gained_df_agg_perPPT_hmap <- Heatmap(asv_gained_df_agg_perPPT_spread_HM,
+        name="New ASV Abundance",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="continuous", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=asv_gained_df_agg_perPPT_spread$treatment_type,
+        row_title="Transcript class",
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=TRUE,
+        clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        clustering_method_columns="ward.D2",
+        clustering_distance_rows="euclidean",
+        clustering_method_rows="ward.D2",
+        row_dend_width=unit(30,"mm"),
+        column_dend_height=unit(30,"mm"))
+draw(asv_gained_df_agg_perPPT_hmap, heatmap_legend_side="left")
+```
+

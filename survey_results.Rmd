@@ -1,0 +1,429 @@
+---
+title: "survey_results"
+author: "HCW"
+date: "4/26/2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(magrittr)
+```
+
+```{r}
+save_figure_path <- "~/R/Project_Probiotic/CLEAN_CODE/plots/"
+prob_responders <- c(7041,7006,7027,7047,7002,7001,7050,7018,7009,7012,7015,7023,7005,7017) #with tp 1,2,3,7,8
+
+redcap_name_tp_number <- data.frame(redcap_event_name=c("baseline_5_arm_1","baseline_3_arm_1","baseline_1_arm_1","week_1_arm_1","week_3_arm_1","week_5_arm_1","week_7_arm_1","week_9_arm_1","week_13_arm_1"),
+                                    Timepoint=c(1:9)) %>% 
+  mutate(Timepoint=as.factor(Timepoint))
+project_probiotic_ppts <- readRDS("~/R/Project_Probiotic/CLEAN_CODE/data/project_probiotic_ppts.csv")
+```
+
+
+Probiotic supplement adherence 
+```{r}
+adher_df <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/ProjectProbiotic-AdherenceTest_DATA_LABELS_2021-11-11_1604.csv") %>% 
+  dplyr::rename(Participant = Record.ID) %>% 
+  mutate(Participant=as.factor(Participant)) %>% 
+  left_join(project_probiotic_ppts,.) %>% 
+  filter(! Participant %in% c(7003,7032)) %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")),
+         above_80=ifelse(Total...Pill.Adherence>=80,TRUE,FALSE))
+
+table(select(adher_df,treatment_type,above_80))
+table(select(adher_df,prob_response,above_80))
+
+mean(filter(adher_df,treatment_type=="Probiotic")$Total...Pill.Adherence,na.rm=TRUE)
+sd(filter(adher_df,treatment_type=="Probiotic")$Total...Pill.Adherence,na.rm=TRUE)
+mean(filter(adher_df,treatment_type=="Placebo")$Total...Pill.Adherence,na.rm=TRUE)
+sd(filter(adher_df,treatment_type=="Placebo")$Total...Pill.Adherence,na.rm=TRUE)
+
+mean(filter(adher_df,prob_response=="Responder")$Total...Pill.Adherence,na.rm=TRUE)
+sd(filter(adher_df,prob_response=="Responder")$Total...Pill.Adherence,na.rm=TRUE)
+mean(filter(adher_df,prob_response=="Non-responder")$Total...Pill.Adherence,na.rm=TRUE)
+sd(filter(adher_df,prob_response=="Non-responder")$Total...Pill.Adherence,na.rm=TRUE)
+
+t.test(filter(adher_df,prob_response=="Responder")$Total...Pill.Adherence,
+       filter(adher_df,prob_response=="Non-responder")$Total...Pill.Adherence,
+       na.rm=TRUE)
+```
+
+
+Gastrointestinal survey
+```{r}
+gastro_raw <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/ProjectProbiotic_GISymptomsQuest_RawData.csv") %>% 
+  dplyr::rename(Participant=record_id) %>% 
+  right_join(redcap_name_tp_number,.) %>% 
+  mutate(Participant=as.factor(as.character(Participant))) %>% 
+  left_join(project_probiotic_ppts,.) %>% 
+  filter(! Participant %in% c(7003,7032))
+
+gastro_gather <- gastro_raw %>% 
+  gather(key=question_num,value=number,gi1:gi16,gi18:gi23,gi24,gi25) %>% 
+  gather(key=question_char,value=char,gi16a,gi17,gi23a,gi24a,gi25a)
+
+gastro_num <- gastro_raw %>% 
+  gather(key=question_num,value=number,gi1:gi16,gi18:gi23,gi24,gi25) %>% 
+  select(Participant,treatment_type,Timepoint,question_num,number) %>% 
+  spread(key=question_num,value=number)
+
+#block all baseline together as median
+gastro_tp_chunk <- gastro_num %>% 
+  gather(key=ques,value=value,-Participant,-treatment_type,-Timepoint) %>% 
+  mutate(tp_chunk=ifelse(Timepoint %in% c(1:3),"Baseline",Timepoint)) %>% 
+  filter(!ques%in%c("gi18a","gi20a","gi21a","gi22a")) %>% 
+  group_by(Participant,treatment_type,tp_chunk,ques) %>% 
+  dplyr::summarize(value_chunk=mean(value)) %>% 
+  spread(key=ques,value=value_chunk)
+
+gastro_study_mean <- gastro_num %>% 
+  gather(key=ques,value=value,-Participant,-treatment_type,-Timepoint) %>% 
+  filter(!ques%in%c("gi18a","gi20a","gi21a","gi22a")) %>%
+  filter(Timepoint %in% c(4:8) ) %>% 
+  group_by(Participant,treatment_type,ques) %>% 
+  dplyr::summarize(mean_value=mean(value,na.omit=TRUE)) %>% 
+  spread(key=ques,value=mean_value)
+
+
+gastro_num_probiotic <- gastro_num %>% 
+  filter(treatment_type=="Probiotic")
+```
+
+```{r}
+paired_df_ppt <- function(df,tp_1,tp_2){
+  df <- df %>% 
+    arrange(Participant)
+  temp_1 <- df %>% 
+    filter(tp_chunk==tp_1) 
+  temp_2 <- df %>% 
+    filter(tp_chunk==tp_2)
+  ppt_list <- intersect(temp_1$Participant,temp_2$Participant)
+  
+  df_paired <- bind_rows(
+    filter(temp_1, Participant %in% ppt_list),
+    filter(temp_2,Participant %in% ppt_list)
+  )
+  return(df_paired)
+}
+```
+
+Paired baseline end of intervention for probiotic group
+```{r}
+# paired_probiotic_base_8 <- gastro_tp_chunk %>% 
+#   filter(treatment_type=="Probiotic") %>% 
+#   paired_df_ppt(.,"Baseline",8)  
+#   
+# df1 <- paired_probiotic_base_8 %>% 
+#   filter(tp_chunk=="Baseline") %>% 
+#   ungroup %>% 
+#   select(-Participant,-tp_chunk,-treatment_type)
+# df2 <- paired_probiotic_base_8 %>% 
+#   filter(tp_chunk==8) %>% 
+#   ungroup %>% 
+#   select(-Participant,-tp_chunk,-treatment_type)
+# mapply(function(x, y) {
+#   if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=TRUE)$p.value
+#   }, df1, df2)
+# 
+# ggplot(paired_probiotic_base_8 ,aes(x=tp_chunk,y=gi21,fill=tp_chunk))+
+#   geom_jitter()
+```
+
+unpaired probiotic vs. placebo for gastro symptoms
+```{r}
+#unpaired average change probiotic vs. placebo
+df_1 <- gastro_study_mean %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  ungroup %>% 
+  select(-Participant,-treatment_type)
+df_2 <- gastro_study_mean %>% 
+  ungroup %>% 
+  filter(treatment_type=="Placebo") %>% 
+  select(-Participant,-treatment_type)
+ttest_unpaired_gastro <- mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>%  #gi10 and gi20 sig different
+  unlist 
+
+
+#1, Normal consistency | 2, Somewhat loose | 3, Runny | 4, Watery
+gi10_factors <- data.frame(gi10=c(1:4),
+                           gi10_desc=c("Normal consistency","Somewhat loose","Runny","Watery"))
+ggplot(gastro_study_mean,aes(x=treatment_type,y=gi10,fill=treatment_type))+
+  geom_boxplot()
+#calculate number of participants with loose consistency over course of study
+gastro_10_study <- gastro_num %>% 
+  filter(Timepoint %in% c(4:8)) %>% 
+  select(Participant,treatment_type,Timepoint,gi10) %>% 
+  mutate(over_1=ifelse(gi10>1,1,0)) %>% 
+  left_join(.,gi10_factors) %>% 
+  na.omit 
+gastro_10_study_grp <- gastro_10_study%>% 
+  group_by(Participant,treatment_type) %>% 
+  dplyr::summarize(sum_over_1_study=sum(over_1,na.rm = TRUE)) %>% 
+  mutate(over_1_once=ifelse(sum_over_1_study>0,1,0),
+         over_1_twice=ifelse(sum_over_1_study>1,1,0)) %>% 
+  ungroup 
+table(select(gastro_10_study_grp,treatment_type,over_1_once))
+table(select(gastro_10_study_grp,treatment_type,over_1_twice))
+
+ggplot(gastro_10_study, aes(x=fct_reorder(gi10_desc,-desc(gi10)),fill = treatment_type)) + 
+  geom_histogram(stat="count")+
+  theme_classic()+
+  xlab("Survey Response")+
+  ylab("Response Count over Intervention")+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  theme(text = element_text(size=16))
+#ggsave(paste(save_figure_path,"gastro_gi10_stool_consistency.pdf"),width=9 ,height = 5)
+
+# ggplot(gastro_10_study_grp, aes(x=sum_over_1_study,fill = treatment_type)) + 
+#   geom_histogram()
+# 
+# 
+# ggplot(gastro_10_study, aes(x=Timepoint,y=gi10,colour = treatment_type,shape=Timepoint)) + 
+#   geom_violin()
+# 
+# #1, More soft or loose | 2, More hard or form | 3, No change in stool consistency
+# ggplot(gastro_study_mean,aes(x=treatment_type,y=gi20,fill=treatment_type))+
+#   geom_boxplot()
+
+#unpaired probiotic R vs. NR
+df_1 <- gastro_study_mean %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  filter(Participant %in% prob_responders) %>% 
+  ungroup %>% 
+  select(-Participant,-treatment_type)
+df_2 <- gastro_study_mean %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  filter(!Participant %in% prob_responders) %>% 
+  ungroup %>% 
+  select(-Participant,-treatment_type)
+ttest_unpaired_gastro_RNR <- mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>%  #gi10 and gi20 sig different
+  unlist
+
+mean(filter(gastro_study_mean,treatment_type=="Probiotic")$gi10,na.rm=TRUE)
+sd(filter(gastro_study_mean,treatment_type=="Probiotic")$gi10,na.rm=TRUE)
+mean(filter(gastro_study_mean,treatment_type=="Placebo")$gi10,na.rm=TRUE)
+sd(filter(gastro_study_mean,treatment_type=="Placebo")$gi10,na.rm=TRUE)
+```
+
+Gastro change at end of intervention
+```{r}
+#unpaired average change probiotic vs. placebo
+df_1 <- gastro_num %>% 
+  filter(treatment_type=="Probiotic" & Timepoint==8) %>% 
+  ungroup %>% 
+  select(-Participant,-treatment_type,-Timepoint,-gi18a,-gi20a,-gi21a,-gi22a)
+df_2 <- gastro_num %>% 
+  ungroup %>% 
+  filter(treatment_type=="Placebo" & Timepoint==8) %>% 
+  select(-Participant,-treatment_type,-Timepoint,-gi18a,-gi20a,-gi21a,-gi22a)
+ttest_unpaired_gastro_8 <- mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>%  #gi10 and gi20 sig different
+  unlist 
+
+t.test(df_1$gi13,df_2$gi13)
+```
+
+
+Compare R vs. NR gastro
+```{r}
+gastro_study_mean_probRNR <- gastro_study_mean %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")))
+
+df_1 <- gastro_study_mean_probRNR %>% 
+  filter(prob_response=="Responder") %>% 
+  ungroup %>% 
+  select(-Participant,-treatment_type,-prob_response)
+df_2 <- gastro_study_mean_probRNR %>% 
+  ungroup %>% 
+  filter(prob_response=="Non-responder") %>% 
+  select(-Participant,-treatment_type,-prob_response)
+ttest_unpaired_gastro_R_v_NR <- mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>%  #gi10 and gi20 sig different
+  unlist 
+
+#responder vs. placebo
+df_1 <- gastro_study_mean_probRNR %>% 
+  filter(prob_response=="Responder") %>% 
+  ungroup %>% 
+  select(-Participant,-treatment_type,-prob_response)
+df_2 <- gastro_study_mean_probRNR %>% 
+  ungroup %>% 
+  filter(prob_response=="Placebo") %>% 
+  select(-Participant,-treatment_type,-prob_response)
+ttest_unpaired_gastro_R_v_plac <- mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>%  #gi10 and gi20 sig different
+  unlist 
+```
+
+
+Global wellness surveys
+```{r}
+redcap_name_tp_number <- data.frame(redcap_event_name=c("baseline_5_arm_1","baseline_3_arm_1","baseline_1_arm_1","week_1_arm_1","week_3_arm_1","week_5_arm_1","week_7_arm_1","week_9_arm_1","week_13_arm_1"),
+                                    Timepoint=c(1:9)) %>% 
+  mutate(Timepoint=as.factor(Timepoint))
+
+global_raw <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/ProjectProbiotic_PROMISSFV1.1GlobalHealthQuest_RawData.csv")
+cognitive_raw <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/ProjectProbiotic_PROMISV1.0Applied_Cognitionabilities_shortform4a_RawData.csv")
+who_raw <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/ProjectProbiotic_WHOFiveWellBeingIndex1998vQuest_RawData.csv")
+
+wellness_all_raw <- full_join(global_raw,cognitive_raw) %>% 
+  full_join(.,who_raw) %>% 
+  dplyr::rename(Participant=record_id) %>% 
+  right_join(redcap_name_tp_number,.) %>% 
+  mutate(Participant=as.factor(as.character(Participant))) %>% 
+  left_join(project_probiotic_ppts,.) %>% 
+  filter(! Participant %in% c(7003,7032)) %>% 
+  select(-redcap_event_name)
+```
+```{r}
+#unpaired at end of intervention
+df_1 <- wellness_all_raw %>% 
+  filter(treatment_type=="Probiotic" & Timepoint == 8) %>% 
+  ungroup %>% 
+  select(-Participant,-treatment_type,-Timepoint)
+df_2 <- wellness_all_raw %>% 
+  ungroup %>% 
+  filter(treatment_type=="Placebo"& Timepoint == 8) %>% 
+  select(-Participant,-treatment_type,-Timepoint)
+ttest_out_unpaired_8 <-mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=F)$p.value
+  }, df_1, df_2) %>% #promis_global05
+  unlist %>% 
+  data.frame() 
+#paired baseline to end of intervention
+wellness_probiotic_paired_3_8 <- wellness_all_raw %>%
+  filter(treatment_type=="Probiotic") %>%
+  dplyr::rename(tp_chunk=Timepoint) %>% 
+  paired_df_ppt(.,3,8)
+
+df1 <- wellness_probiotic_paired_3_8 %>%
+  filter(tp_chunk==3) %>%
+  ungroup %>%
+  select(-Participant,-tp_chunk,-treatment_type)
+df2 <- wellness_probiotic_paired_3_8 %>%
+  filter(tp_chunk==8) %>%
+  ungroup %>%
+  select(-Participant,-tp_chunk,-treatment_type)
+ttest_out_prob_paired <-mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=TRUE)$p.value
+  }, df1, df2) %>% 
+  unlist %>% 
+  data.frame() 
+
+#plot sig. promis_global05
+ggplot(wellness_probiotic_paired_3_8,aes(x=tp_chunk,y=promis_global05,group=Participant,col=Participant))+
+  geom_line()+
+  geom_point()
+
+wellness_probiotic_paired_3_8_global05 <- wellness_probiotic_paired_3_8 %>% 
+  select(Participant:tp_chunk,promis_global05) %>% 
+  spread(key=tp_chunk,value=promis_global05) %>% 
+  mutate(change=`8`-`3`)
+table(wellness_probiotic_paired_3_8_global05$change)
+
+wellness_placebo_paired_3_8_global05 <- wellness_all_raw %>%
+  filter(treatment_type=="Placebo") %>%
+  dplyr::rename(tp_chunk=Timepoint) %>% 
+  paired_df_ppt(.,3,8) %>% 
+  select(Participant:tp_chunk,promis_global05) %>% 
+  spread(key=tp_chunk,value=promis_global05) %>% 
+  mutate(change=`8`-`3`)
+table(wellness_placebo_paired_3_8_global05$change)
+
+#paired for placebo
+wellness_placebo_paired_3_8 <- wellness_all_raw %>%
+  filter(treatment_type=="Placebo") %>%
+  dplyr::rename(tp_chunk=Timepoint) %>% 
+  paired_df_ppt(.,3,8)
+
+df1 <- wellness_placebo_paired_3_8 %>%
+  filter(tp_chunk==3) %>%
+  ungroup %>%
+  select(-Participant,-tp_chunk,-treatment_type)
+df2 <- wellness_placebo_paired_3_8 %>%
+  filter(tp_chunk==8) %>%
+  ungroup %>%
+  select(-Participant,-tp_chunk,-treatment_type)
+ttest_out_plac_paired <-mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=TRUE)$p.value
+  }, df1, df2) %>% #promis_global05
+  unlist
+
+#test unpaired change from baseline to intervention
+wellness_paired_change_3_8 <- bind_rows(wellness_probiotic_paired_3_8,wellness_placebo_paired_3_8) %>% 
+  gather(key=question,value=value,-Participant,-treatment_type,-tp_chunk) %>% 
+  spread(key=tp_chunk,value=value) %>% 
+  mutate(change=`8`-`3`) %>% 
+  select(-`3`,-`8`) %>% 
+  spread(key=question,value=change) #%>% 
+  # select(-promis_global_scr_1,-promis_v10applied_cognitionabilitiesshort_form_4a_complete,-promis_sf_v11_global_health_complete,-who_five_wellbeing_index_1998_version_complete)
+
+df_1 <- wellness_paired_change_3_8 %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type)
+df_2 <- wellness_paired_change_3_8 %>% 
+  filter(treatment_type=="Placebo") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type)
+ttest_out_change_unpaired <-mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>% #promis_global05
+  unlist
+
+#test unpaired probiotic R vs. NR
+wellness_paired_change_3_8_probRNR <- wellness_paired_change_3_8 %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")))
+df_1 <- wellness_paired_change_3_8_probRNR %>% 
+  filter(prob_response=="Responder") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type,-prob_response)
+df_2 <- wellness_paired_change_3_8_probRNR %>% 
+  filter(prob_response=="Non-responder") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type,-prob_response)
+ttest_out_change_unpaired_R_v_NR <-mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>% #promis_global05
+  unlist
+
+#placebo vs. R
+df_1 <- wellness_paired_change_3_8_probRNR %>% 
+  filter(prob_response=="Responder") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type,-prob_response)
+df_2 <- wellness_paired_change_3_8_probRNR %>% 
+  filter(prob_response=="Placebo") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type,-prob_response)
+ttest_out_change_unpaired_R_v_plac <-mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>% #promis_global05
+  unlist
+
+#placebo vs. NR
+df_1 <- wellness_paired_change_3_8_probRNR %>% 
+  filter(prob_response=="Non-responder") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type,-prob_response)
+df_2 <- wellness_paired_change_3_8_probRNR %>% 
+  filter(prob_response=="Placebo") %>% 
+  ungroup %>%
+  select(-Participant,-treatment_type,-prob_response)
+ttest_out_change_unpaired_NR_v_plac <-mapply(function(x, y) {
+  if(all(is.na(x)) || all(is.na(y))) NULL else t.test(x, y, na.action=na.omit,paired=FALSE)$p.value
+  }, df_1, df_2) %>% #promis_global05
+  unlist
+```
+

@@ -1,0 +1,11 @@
+Variable / Field Name,Form Name,Section Header,Field Type,Field Label,"Choices, Calculations, OR Slider Labels",Field Note,Text Validation Type OR Show Slider Number,Text Validation Min,Text Validation Max,Identifier?,Branching Logic (Show field only if...),Required Field?,Custom Alignment,Question Number (surveys only),Matrix Group Name,Matrix Ranking?,Field Annotation
+record_id,screener,,text,Record ID,,,,,,,,,,,,, @HIDDEN-SURVEY
+scr_age,screener,,calc,Calculated age at time of screen,"rounddown(datediff([scr_dob], [scr_date_completed], ""y"", ""mdy"", true),1)",,,,,,,,,,,, @HIDDEN-SURVEY
+scr_gender,screener,,radio,What is your gender?,"1, Male | 2, Female | 99, Other",,,,,,,y,,,,,
+scr_ethnic_racial,screener,,radio,How would you best describe your ethnic and racial background? Please select one:,"1, White | 2, Black/African American | 3, Hispanic/Latino | 4, Asian | 5, Native Hawaiian/Pacific Islander | 6, American Indian/Alaska Native",,,,,,,,,,,,
+scr_marital,screener,,radio,What is your current marital status?,"1, Married/Partnered | 2, Single/Never married | 3, Widowed | 4, Separated | 5, Divorced",,,,,,,,,,,,
+scr_education,screener,,radio,What is your highest level of education?,"1, Some grade school | 2, Some high school | 3, High school graduate | 4, Some college | 5, College graduate | 6, Some post-graduate school | 7, Post-graduate degree",,,,,,,,,,,,
+scr_employm,screener,,radio,What is your current employment status?,"1, Working full-time | 2, Working part-time | 3, Student | 4, Unemployed | 5, Retired",,,,,,,,,,,,
+scr_smoke,screener,Lifestyle History,yesno,Do you smoke?,,,,,,,,y,,,,,
+scr_smoke_past,screener,,yesno,Have you ever smoked in the past?,,,,,,,[scr_smoke] = '0',y,,,,,
+scr_smoke_stop,screener,,text,How many years ago did you stop smoking?,,,number,,,,[scr_smoke_past] = '1',,,,,,

@@ -1,0 +1,454 @@
+---
+title: "probiotic_metabolomics"
+author: "HCW"
+date: "11/21/2020"
+output: html_document
+---
+
+```{r}
+library(resample) 
+library(tidyverse)
+library(siggenes)
+library(vegan)
+library(nlme)
+library(zoo)
+library(Hmisc)
+```
+
+```{r}
+save_figure_path <- "~/R/Project_Probiotic/CLEAN_CODE/plots/"
+
+metab_data_raw <- read.csv("~/R/metabolomics_projects/Pilot_Probiotic_shwvt_library_update/probiotic_serum_metabolites_all_norm.csv") %>% 
+  mutate(Participant=as.integer(str_sub(as.character(Participant),-2,-1))) %>% 
+  dplyr::rename(CTRU_id=Participant)
+
+prob_responders <- c(7041,7006,7027,7047,7002,7001,7050,7018,7009,7012,7015,7023,7005,7017)
+project_probiotic_ppts <- readRDS("~/R/Project_Probiotic/CLEAN_CODE/data/project_probiotic_ppts.csv") %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder"))) %>% 
+  mutate(Participant=as.integer(as.character(Participant)))
+corrected_grouping <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/41697_OLINK_serum_2018-11-16.csv",stringsAsFactors = FALSE) %>% 
+  dplyr::rename(CTRU_id=CTRU..OpenSpecimen.ID,Participant=Project.Probiotic.Study.ID) %>% 
+  select(CTRU_id,Participant) %>% 
+  left_join(.,project_probiotic_ppts) %>% 
+  unique()
+
+metab_data <- metab_data_raw %>% 
+  right_join(corrected_grouping,.) %>% 
+  select(-CTRU_id,-X,-Sample_type,-Study,-AMILORIDEPEAK2_c18pos,-DILTIAZEM_c18pos,-X4.ACETAMIDOPHENOL_HILICpos,-LORATADINE_HILICpos) %>% 
+  filter(Timepoint != 5) %>% 
+  na.omit()
+metab_data_spread_scale <- metab_data %>% 
+  mutate(Participant=as.character(Participant),
+         Timepoint=as.character(Timepoint)) %>% 
+  mutate_if(is.numeric, scale)
+#write.csv(metab_data_spread_scale,"~/R/metabolomics_projects/Pilot_Probiotic_shwvt_library_update/probiotic_serum_metabolites_clean_scale.csv")
+
+metab_data_gather <- metab_data %>% 
+  gather(key=metab,value=metab_value,-Participant,-treatment_type,-prob_response,-Timepoint)
+```
+
+
+```{r}
+paired_df_ppt <- function(df,tp_1,tp_2){
+  df <- df %>% 
+    arrange(Participant)
+  temp_1 <- df %>% 
+    filter(Timepoint==tp_1) 
+  temp_2 <- df %>% 
+    filter(Timepoint==tp_2)
+  ppt_list <- intersect(temp_1$Participant,temp_2$Participant)
+  
+  df_paired <- bind_rows(
+    filter(temp_1, Participant %in% ppt_list),
+    filter(temp_2,Participant %in% ppt_list)
+  )
+  return(df_paired)
+}
+
+var_function <- function(df_spread,num_quantile){
+  vars_vector <- df_spread %>% 
+    select(-Participant,-Timepoint,-treatment_type,-prob_response) %>% 
+    as.matrix() %>% 
+    colVars(na.rm = T)
+  name_vector <- df_spread %>% 
+    select(-Participant,-Timepoint,-treatment_type,-prob_response) %>% 
+    colnames()
+  filt_names <- name_vector[vars_vector>quantile(vars_vector)[num_quantile]] #top 75% varying proteins =2
+  return(filt_names)
+}
+```
+
+Paired siggenes end of intervention to baseline
+-filtered to top 75% most varying metabolites (like the host proteins)
+-no sig individual metabolites from baseline to end of intervention
+```{r}
+#probiotic
+metab_data_probiotic <- metab_data %>% 
+  filter(treatment_type=="Probiotic") 
+
+metab_names <- var_function(metab_data_probiotic,2)
+metab_data_probiotic_filt <- metab_data_gather %>% 
+  filter(treatment_type=="Probiotic" & metab %in% metab_names) %>% 
+  spread(key=metab,value=metab_value)
+
+metab_data_probiotic_paired <- paired_df_ppt(metab_data_probiotic_filt,1,6)
+set.seed(20)
+siggenes_cl <- c((-1:-23), 1:23)
+siggenes_data <- t(metab_data_probiotic_paired[-c(1:4)])
+siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+
+#placebo
+#probiotic
+# metab_data_placebo <- metab_data %>% 
+#   filter(treatment_type=="Placebo") 
+# 
+# metab_names <- var_function(metab_data_placebo,2)
+# metab_data_placebo_filt <- metab_data_gather %>% 
+#   filter(treatment_type=="Placebo" & metab %in% metab_names) %>% 
+#   spread(key=metab,value=metab_value) 
+# 
+# metab_data_placebo_paired <- paired_df_ppt(metab_data_placebo_filt,1,6)
+# set.seed(20)
+# siggenes_cl <- c((-1:-12), 1:12)
+# siggenes_data <- t(metab_data_placebo_paired[-c(1:4)])
+# siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+# summary(siggenes_output)
+# delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+# siggenes_df <- summary(siggenes_output,delta_siggenes[2])
+# siggenes_mat.sig <- siggenes_df@mat.sig %>%
+#   filter(q.value <= 0.1) %>%
+#   mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+#   select(Analyte,q.value)
+
+
+#probiotic R
+metab_data_probiotic_R <- metab_data %>% 
+  filter(prob_response=="Responder") 
+
+metab_names <- var_function(metab_data_probiotic_R,2)
+metab_data_probiotic_R_filt <- metab_data_gather %>% 
+  filter(prob_response=="Responder" & metab %in% metab_names) %>% 
+  spread(key=metab,value=metab_value)
+
+metab_data_probiotic_R_paired <- paired_df_ppt(metab_data_probiotic_R_filt,1,6)
+set.seed(20)
+siggenes_cl <- c((-1:-13), 1:13)
+siggenes_data <- t(metab_data_probiotic_R_paired[-c(1:4)])
+siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+```
+
+Use scaled differences for analysis that uses all metabolite features at once 
+```{r}
+#find paired samples - particvipants with both baseline and maint samples
+metab_data_scale_paired <- paired_df_ppt(metab_data_spread_scale,1,6)
+metab_data_scale_paired_probiotic <- metab_data_scale_paired %>% 
+  filter(treatment_type=="Probiotic")
+metab_data_scale_paired_placebo <- metab_data_scale_paired %>% 
+  filter(treatment_type=="Placebo")
+
+#calcualte difference between baseline and maint
+metab_data_scale_diff <- metab_data_scale_paired %>% 
+  gather(key=metab,value=metab_scaled,-c(Participant:Timepoint)) %>% 
+  spread(key=Timepoint,value=metab_scaled) %>% 
+  mutate(metab_scale_diff=`6`-`1`) %>% 
+  select(-`6`,-`1`) %>% 
+  spread(key=metab,value=metab_scale_diff)
+
+
+```
+
+Beta diversity of scaled metabolite difference 
+```{r}
+set.seed(200)
+#between probiotic and placebo
+metab_data_scale_diff_raw <- metab_data_scale_diff %>% 
+  select(-Participant,-prob_response,-treatment_type)
+permanova <- adonis(metab_data_scale_diff_raw ~ treatment_type, data = metab_data_scale_diff, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["treatment_type", "Pr(>F)"]
+
+#between probiotic R, NR, and placebo
+permanova <- adonis(metab_data_scale_diff_raw ~ prob_response, data = metab_data_scale_diff, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["prob_response", "Pr(>F)"]
+
+#between baseline and maint probiotic group 
+metab_data_scale_paired_probiotic_raw <- metab_data_scale_paired_probiotic %>% 
+  select(-Participant,-prob_response,-treatment_type,-Timepoint)
+permanova <- adonis(metab_data_scale_paired_probiotic_raw ~ Timepoint, data = metab_data_probiotic_paired, method='euclidean',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["Timepoint", "Pr(>F)"]
+
+#between baseline and maint placebo group 
+metab_data_scale_paired_placebo_raw <- metab_data_scale_paired_placebo %>% 
+  select(-Participant,-prob_response,-treatment_type,-Timepoint)
+permanova <- adonis(metab_data_scale_paired_placebo_raw ~ Timepoint, data = metab_data_scale_paired_placebo, method='euclidean',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["Timepoint", "Pr(>F)"]
+
+#between baseline and maint probiotic R group 
+metab_data_scale_paired_probiotic_R_raw <- metab_data_scale_paired_probiotic %>% 
+  filter(prob_response=="Responder") %>% 
+  select(-Participant,-prob_response,-treatment_type,-Timepoint)
+permanova <- adonis(metab_data_scale_paired_probiotic_R_raw ~ Timepoint, data =filter(metab_data_scale_paired_probiotic,prob_response=="Responder"), method='euclidean',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["Timepoint", "Pr(>F)"]
+
+#between baseline and maint probiotic NR group 
+metab_data_scale_paired_probiotic_R_raw <- metab_data_scale_paired_probiotic %>% 
+  filter(prob_response=="Non-responder") %>% 
+  select(-Participant,-prob_response,-treatment_type,-Timepoint)
+permanova <- adonis(metab_data_scale_paired_probiotic_R_raw ~ Timepoint, data =filter(metab_data_scale_paired_probiotic,prob_response=="Non-responder"), method='euclidean',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["Timepoint", "Pr(>F)"]
+```
+
+Plot PCoA space from the adonis 
+```{r}
+dis <- vegdist(metab_data_scale_diff_raw,method="eu")
+## Calculate multivariate dispersions
+mod <- betadisper(dis, metab_data_scale_diff$prob_response)
+
+betadisper_df <- data.frame(Participant=metab_data_scale_diff$Participant,
+                            treatment_type=metab_data_scale_diff$treatment_type,
+                            prob_response=metab_data_scale_diff$prob_response,
+                            dist_cent=mod[["distances"]],
+                            mod[["vectors"]]) 
+# % var PCoA 1
+mod[["eig"]][1]/sum(mod[["eig"]])
+# % var PCoA 2
+mod[["eig"]][2]/sum(mod[["eig"]])
+
+ggplot(betadisper_df,aes(x=PCoA1,y=PCoA2,colour=prob_response))+
+  geom_point(size=3)+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=prob_response),level = 0.50)+
+  scale_color_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()+
+  xlab("Metabolite Profile PCoA1 (8.9%)")+
+  ylab("Metabolite Profile PCoA2 (7.1%)")+
+  theme(text = element_text(size=18))
+#ggsave(paste(save_figure_path,"metabolite_pcoa.pdf"),width=10,height = 8)
+
+t.test(filter(betadisper_df,treatment_type=="Probiotic")$dist_cent,filter(betadisper_df,treatment_type=="Placebo")$dist_cent)
+t.test(filter(betadisper_df,prob_response=="Responder")$dist_cent,filter(betadisper_df,prob_response=="Non-responder")$dist_cent)
+
+ggplot(betadisper_df,aes(x=prob_response,y=dist_cent,fill=prob_response))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()
+```
+
+LOOCV predict probiotic vs. placebo
+```{r}
+loocv_rf_function <- function(df) {
+  set.seed(20)
+  folds <- groupKFold(df$Participant,k=length(unique(df$Participant)))
+  control <- rfeControl(functions=rfFuncs, method="LOOCV",number = 100,index=folds)
+  df_temp <- select(df,-Participant) %>% as.data.frame
+  df_centered <- center_scale(df_temp[,2:dim(df_temp)[2]])
+  rfe_obj <- rfe(df_centered,as.factor(df_temp[,1]), sizes=(2:ncol(df_temp)-1), rfeControl=control)
+  return(rfe_obj)
+}
+center_scale <- function(x) {
+    scale(x, scale = FALSE)
+}
+loocv_results_dfs <- function(loocv_object,data_type_char){
+  accuracy_df <- data.frame(data_type=data_type_char,
+                            max_acc=max(loocv_object[["results"]][["Accuracy"]]),
+                            optsize=loocv_object[["optsize"]])
+  optVariables_df <- data.frame(data_type=data_type_char,
+                            rank_order=c(1:length(loocv_object[["optVariables"]])),
+                            optVariables=loocv_object[["optVariables"]])
+  return(list(accuracy_df,optVariables_df))
+}
+```
+
+```{r}
+df_in <- metab_data_scale_diff %>% 
+  select(-prob_response) %>% 
+  mutate(treatment_type=as.factor(treatment_type))
+
+loocv_rf_int_metab_change <- df_in %>% 
+  loocv_rf_function()
+loocv_rf_results_metab_change_pp <- loocv_rf_int_metab_change %>% 
+  loocv_results_dfs(.,"metab_change_pp")
+
+loocv_rf_results_metab_change_pp_sigg <- loocv_rf_results_metab_change_pp[[2]] %>% 
+  filter(rank_order<5) 
+metab_data_scale_diff_pp_sigg <- metab_data_scale_diff %>%
+  gather(key=metab,value=metab_change,-Participant,-treatment_type,-prob_response) %>% 
+  filter(metab %in% loocv_rf_results_metab_change_pp_sigg$optVariables)
+ggplot(metab_data_scale_diff_pp_sigg,aes(x=treatment_type,y=metab_change,fill=treatment_type))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  facet_wrap(~metab,scales="free")
+
+#probiotic R vs. NR
+df_in <- metab_data_scale_diff %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  select(-treatment_type) %>% 
+  mutate(prob_response=as.factor(prob_response))
+
+loocv_rf_int_metab_change_rnr <- df_in %>% 
+  loocv_rf_function()
+loocv_rf_results_metab_change_rnr <- loocv_rf_int_metab_change_rnr %>% 
+  loocv_results_dfs(.,"metab_change_rnr")
+
+metab_data_scale_diff <- metab_data_scale_diff %>% 
+  mutate(prob_response=factor(prob_response,levels=c("Placebo","Non-responder","Responder"),ordered=TRUE))
+ggplot(metab_data_scale_diff,aes(x=prob_response,y=HOMOVANILLIC.ACID_c18pos,fill=prob_response))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("gray","#b2182b","#2166ac"))+
+  theme(text = element_text(size=18))+
+  ylab("Scaled Difference in Serum Homovanillic Acid")+
+  xlab("Treatment Arm")
+# ggsave(paste(save_figure_path,"metabolite_homovanillic_acid.pdf"),width=10,height = 8)
+
+
+t.test(filter(metab_data_scale_diff,prob_response=="Responder")$HOMOVANILLIC.ACID_c18pos,filter(metab_data_scale_diff,prob_response=="Non-responder")$HOMOVANILLIC.ACID_c18pos)
+t.test(filter(metab_data_scale_diff,prob_response=="Responder")$HOMOVANILLIC.ACID_c18pos,filter(metab_data_scale_diff,prob_response=="Placebo")$HOMOVANILLIC.ACID_c18pos)
+t.test(filter(metab_data_scale_diff,prob_response=="Non-responder")$HOMOVANILLIC.ACID_c18pos,filter(metab_data_scale_diff,prob_response=="Placebo")$HOMOVANILLIC.ACID_c18pos)
+```
+
+
+Elastic net predicting group based on metabolite change
+```{r}
+#probiotic vs. placebo 
+df_EN_raw <- metab_data_scale_diff %>% 
+  select(-Participant,-prob_response) %>% 
+  mutate(treatment_type=as.factor(treatment_type))
+set.seed(20)
+trainIndex <- createDataPartition(df_EN_raw$treatment_type, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(treatment_type ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$treatment_type,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+
+#probiotic R vs. NR 
+df_EN_raw <- metab_data_scale_diff %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  select(-Participant,-treatment_type) %>% 
+  mutate(prob_response=as.factor(prob_response))
+set.seed(20)
+trainIndex <- createDataPartition(df_EN_raw$prob_response, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(prob_response ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$prob_response,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+```
+
+Elastic net predicting probiotic R vs. NR based on baseline metabolites
+```{r}
+#probiotic R vs. NR 
+df_EN_raw <- metab_data_spread_scale %>% 
+  filter(treatment_type=="Probiotic" & Timepoint==1) %>% 
+  select(-Participant,-treatment_type,-Timepoint) %>% 
+  mutate(prob_response=as.factor(prob_response))
+set.seed(200)
+trainIndex <- createDataPartition(df_EN_raw$prob_response, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(prob_response ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$prob_response,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+```
+adonis on baseline metabolite profile for probiotic R vs NR
+```{r}
+metab_data_spread_scale_base <- metab_data_spread_scale %>% 
+  filter(treatment_type=="Probiotic" & Timepoint==1) 
+
+metab_data_spread_scale_base_raw <- metab_data_spread_scale_base %>% 
+  select(-Participant,-treatment_type,-Timepoint,-prob_response)
+
+#between probiotic R, NR, and placebo
+permanova <- adonis(metab_data_spread_scale_base_raw ~ prob_response, data = metab_data_spread_scale_base, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["prob_response", "Pr(>F)"]
+```
+Distance from centroid 
+```{r}
+metab_data_spread_scale_raw <- metab_data_spread_scale %>% 
+  select(-Participant,-treatment_type,-Timepoint,-prob_response)
+
+dis <- vegdist(metab_data_spread_scale_raw,method="eu")
+## Calculate multivariate dispersions
+mod <- betadisper(dis, paste(metab_data_spread_scale$prob_response,metab_data_spread_scale$Timepoint,sep="_"))
+
+betadisper_df <- data.frame(Participant=metab_data_spread_scale$Participant,
+                            treatment_type=metab_data_spread_scale$treatment_type,
+                            prob_response=metab_data_spread_scale$prob_response,
+                            Timepoint_label=metab_data_spread_scale$Timepoint,
+                            response_time=paste(metab_data_spread_scale$prob_response,metab_data_spread_scale$Timepoint,sep="_"),
+                            dist_cent=mod[["distances"]],
+                            mod[["vectors"]]) 
+
+ggplot(betadisper_df,aes(x=PCoA1,y=PCoA2,colour=response_time))+
+  geom_point()+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=response_time),level = 0.50)+
+  # scale_color_manual(values=c("#d95f02","gray85","#1b9e77"))+
+  theme_classic()
+
+t.test(filter(betadisper_df,response_time=="Responder_1")$dist_cent,filter(betadisper_df,response_time=="Responder_6")$dist_cent)
+t.test(filter(betadisper_df,response_time=="Non-responder_1")$dist_cent,filter(betadisper_df,response_time=="Non-responder_6")$dist_cent)
+t.test(filter(betadisper_df,response_time=="Non-responder_1")$dist_cent,filter(betadisper_df,response_time=="Responder_1")$dist_cent)
+
+ggplot(filter(betadisper_df,response_time %in% c("Responder_Late_int","Non-responder_Late_int")),aes(x=response_time,y=dist_cent,fill=response_time))+
+  geom_boxplot()+
+  # scale_fill_manual(values=c("#d95f02","gray85","#1b9e77"))+
+  theme_classic()
+
+```
+

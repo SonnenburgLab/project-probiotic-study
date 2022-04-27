@@ -1,0 +1,1012 @@
+---
+title: "met_syn_screening_params"
+author: "HCW"
+date: "10/28/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(magrittr)
+library(ComplexHeatmap)
+```
+
+
+```{r}
+save_figure_path <- "~/R/Project_Probiotic/CLEAN_CODE/plots/"
+
+project_probiotic_ppts <- readRDS("~/R/Project_Probiotic/CLEAN_CODE/data/project_probiotic_ppts.csv")
+met_syn_screening <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/met_syn_screening.csv") %>% 
+  mutate(Participant=as.character(Participant)) %>% 
+  select(Participant:medications) %>% 
+  left_join(project_probiotic_ppts,.) %>% 
+  na.omit %>% 
+  filter(Participant %in% project_probiotic_ppts$Participant) %>% 
+  unique
+
+```
+
+Demographics calculations
+```{r}
+table(met_syn_screening$treatment_type)
+table(select(met_syn_screening,treatment_type,Gender))
+table(select(met_syn_screening,treatment_type,Ethnicity))
+
+# prob_responders <- c(7041,7006,7027,7047,7002,7001,7050,7018,7009,7012,7015,7023,7005,7017)
+# df_filt <- met_syn_screening %>% 
+#   filter(Participant %in% prob_responders)
+
+met_syn_screening_anthro_table <- met_syn_screening %>%
+  mutate(waist_cm=waist_in*2.54) %>% 
+  select(-waist_in) %>% 
+  gather(key=anthro,value=anthro_value,Age:dias_bp,waist_cm) %>%
+  mutate(anthro_value=as.numeric(anthro_value)) %>% 
+  group_by(treatment_type,anthro) %>% 
+  dplyr::summarize(anthro_avg=mean(anthro_value),
+                   anthro_sd=sd(anthro_value))
+
+demo_raw <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/ProjectProbiotic_Demographics_RawData.csv") %>% 
+  mutate(Participant=as.character(record_id)) %>% 
+  select(Participant,scr_gender:scr_smoke_stop) %>% 
+  left_join(project_probiotic_ppts,.)
+
+table(select(demo_raw,treatment_type,scr_marital)) #1, Married/Partnered | 2, Single/Never married | 3, Widowed | 4, Separated | 5, Divorced
+table(select(demo_raw,treatment_type,scr_education)) #1, Some grade school | 2, Some high school | 3, High school graduate | 4, Some college | 5, College graduate | 6, Some post-graduate school | 7, Post-graduate degree
+table(select(demo_raw,treatment_type,scr_employm)) #1, Working full-time | 2, Working part-time | 3, Student | 4, Unemployed | 5, Retired
+table(select(demo_raw,treatment_type,scr_smoke)) #1, Working full-time | 2, Working part-time | 3, Student | 4, Unemployed | 5, Retired
+```
+
+
+Screening parameters
+International Diabetes Federation Guideline: 
+1. Increased waist circumference, with ethnic-specific waist circumference cut-points: 
+White and all other ethnic groups - Men ≥ 94 cm; Women ≥ 80 cm 
+South Asians, Chinese, and Japanese - Men ≥ 90 cm; Women ≥ 80 cm 
+
+PLUS any two of the following: 
+2. Triglycerides ≥150 mg/dL (1.7 mmol/L) or treatment for elevated triglycerides 
+3. HDL cholesterol <40 mg/dL (1.03 mmol/L) in men or <50 mg/dL (1.29 mmol/L) in women, or treatment for low HDL 
+4. Systolic blood pressure ≥130, diastolic blood pressure ≥85, or treatment for hypertension 
+5. FPG ≥100 mg/dL (5.6 mmol/L) or previously diagnosed type 2 diabetes; an oral glucose tolerance test is recommended for patients with an elevated fasting plasma glucose, but not required
+```{r}
+met_syn_screening_male_white <- met_syn_screening %>% 
+  filter(Gender=="Male" & Ethnicity=="White")
+met_syn_screening_male_NONwhite <- met_syn_screening %>% 
+  filter(Gender=="Male" & Ethnicity!="White")
+
+met_syn_screening_female_white <- met_syn_screening %>% 
+  filter(Gender=="Female" & Ethnicity=="White")
+met_syn_screening_female_NONwhite <- met_syn_screening %>% 
+  filter(Gender=="Female" & Ethnicity!="White")
+
+#IDF guidlines for white men
+met_syn_screening_male_white_idf <- met_syn_screening_male_white %>% 
+  mutate(waist_idf=ifelse(waist_in>=37,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(HDL_chol<40,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose>=100,1,0),
+         bp_med=ifelse(medications %in% c("BP & Cholesterol lowering","BP lowering"),1,0),
+         chol_med=ifelse(medications %in% c("BP & Cholesterol lowering", "Cholesterol lowering"),1,0),
+         glucose_med=ifelse(medications=="Glucose lowering",1,0)) 
+
+#IDF guidlines for non-white men
+met_syn_screening_male_NONwhite_idf <- met_syn_screening_male_NONwhite %>% 
+  mutate(waist_idf=ifelse(waist_in>=35,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(HDL_chol<40,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose>=100,1,0),
+         bp_med=ifelse(medications %in% c("BP & Cholesterol lowering","BP lowering"),1,0),
+         chol_med=ifelse(medications %in% c("BP & Cholesterol lowering", "Cholesterol lowering"),1,0),
+         glucose_med=ifelse(medications=="Glucose lowering",1,0)) 
+
+#IDF guidlines for white women
+met_syn_screening_female_white_idf <- met_syn_screening_female_white %>% 
+  mutate(waist_idf=ifelse(waist_in>=31.5,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(HDL_chol<50,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose>=100,1,0),
+         bp_med=ifelse(medications %in% c("BP & Cholesterol lowering","BP lowering"),1,0),
+         chol_med=ifelse(medications %in% c("BP & Cholesterol lowering", "Cholesterol lowering"),1,0),
+         glucose_med=ifelse(medications=="Glucose lowering",1,0)) 
+
+#IDF guidlines for non-white women
+met_syn_screening_female_NONwhite_idf <- met_syn_screening_female_NONwhite %>% 
+  mutate(waist_idf=ifelse(waist_in>=31.5,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(HDL_chol<50,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose>=100,1,0),
+         bp_med=ifelse(medications %in% c("BP & Cholesterol lowering","BP lowering"),1,0),
+         chol_med=ifelse(medications %in% c("BP & Cholesterol lowering", "Cholesterol lowering"),1,0),
+         glucose_med=ifelse(medications=="Glucose lowering",1,0)) 
+
+met_syn_screening_idf_all <- bind_rows(met_syn_screening_male_white_idf,
+                                       met_syn_screening_male_NONwhite_idf,
+                                       met_syn_screening_female_white_idf,
+                                       met_syn_screening_female_NONwhite_idf)
+
+met_syn_screening_idf_sum <- met_syn_screening_idf_all %>% 
+  select(Participant,treatment_type,waist_idf:glucose_med) %>% 
+  gather(key=idf_param,value=idf_threshold,waist_idf:glucose_med) %>% 
+  group_by(Participant,treatment_type) %>% 
+  dplyr::summarize(idf_threshold_sum=sum(idf_threshold))
+
+met_syn_screening_idf_clean <- met_syn_screening_idf_all %>% 
+  select(Participant,treatment_type,waist_idf:glucose_med) %>% 
+  left_join(.,met_syn_screening_idf_sum) %>% 
+  arrange(-idf_threshold_sum)
+```
+
+
+Heatmap for screening parameters
+```{r}
+#Screening levels
+met_syn_screening_idf_clean_HM <-  dplyr::select(met_syn_screening_idf_clean,waist_idf:glucose_med) %>% as.matrix(.)
+rownames(met_syn_screening_idf_clean_HM) <- met_syn_screening_idf_clean$Participant
+
+met_syn_screen_idf_hmap <- Heatmap(met_syn_screening_idf_clean_HM,
+        name="Screening Levels",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=met_syn_screening_idf_clean$treatment_type,
+        #row_title="Transcript class",
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=TRUE,
+        # row_order = order(as.numeric(rownames(anthro_avgs_screen_thresholds_HM))),
+        column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        #clustering_method_columns="ward.D2",
+        # clustering_distance_rows="euclidean",
+        # clustering_method_rows="ward.D2",
+        # row_dend_width=unit(30,"mm"),
+        # column_dend_height=unit(30,"mm"),
+        row_dend_reorder = FALSE,
+        cluster_rows=FALSE,
+        rect_gp = gpar(col = "white", lwd = 2))
+
+#Total threshold levels
+met_syn_screening_idf_clean_SUM_HM <-  dplyr::select(met_syn_screening_idf_clean,idf_threshold_sum) %>% 
+  as.matrix(.)
+rownames(met_syn_screening_idf_clean_SUM_HM) <- met_syn_screening_idf_clean$Participant
+
+met_syn_screen_idf_SUM_hmap <- Heatmap(met_syn_screening_idf_clean_SUM_HM,
+        name="Screening Levels",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=met_syn_screening_idf_clean$treatment_type,
+        #row_title="Transcript class",
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=TRUE,
+        # row_order = order(as.numeric(rownames(anthro_avgs_screen_thresholds_HM))),
+        # column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_SUM_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        #clustering_method_columns="ward.D2",
+        # clustering_distance_rows="euclidean",
+        # clustering_method_rows="ward.D2",
+        # row_dend_width=unit(30,"mm"),
+        # column_dend_height=unit(30,"mm"),
+        row_dend_reorder = FALSE,
+        cluster_rows=FALSE,
+        rect_gp = gpar(col = "white", lwd = 2))
+
+met_syn_screen_idf_hmap+met_syn_screen_idf_SUM_hmap
+# met_syn_screen_idf_SUM_hmap+met_syn_screen_idf_hmap
+
+```
+Participants that have 3+ metsyn parameters 
+```{r}
+met_syn_screening_idf_clean_3filt <- met_syn_screening_idf_clean %>% 
+  filter(idf_threshold_sum>2)
+participant_3filt_vect <- met_syn_screening_idf_clean_3filt$Participant
+```
+
+Metabolic syn params over study intervention
+```{r}
+redcap_name_tp_number <- data.frame(redcap_event_name=c("screening_arm_1","baseline_3_arm_1","baseline_arm_1","week_4_arm_1","week_6_arm_1","week_8_arm_1","week_10_arm_1","week_14_arm_1"),
+                                    Timepoint=c(0,2,3,5,6,7,8,10))
+date_raw_labels <- read.csv("~/R/Project_Probiotic/ProjectProbiotic_CTRUDates-ID_RawData.csv") %>% 
+  dplyr::rename(Participant=record_id)  %>% 
+  left_join(.,redcap_name_tp_number) %>% 
+  separate(ctru_visit_appt_date,into=c("month","day","year"),sep = "/",remove=FALSE) %>% 
+  mutate(year=paste("20",year,sep=""))
+ctruid_labels <- date_raw_labels %>% 
+  select(Participant,scr_ctruid) %>% 
+  na.omit()
+#anthropometrics
+bp_weight_raw <- read.csv("~/R/Project_Probiotic/41697_EPIC_data_FINAL_2019-2-5.csv") %>% 
+  dplyr::select(-TEMP,-MRN,-CTRU_VISIT) %>% 
+  dplyr::rename(Participant=RECORD_ID,
+                redcap_event_name=vlookup_event_name) %>% 
+  left_join(.,redcap_name_tp_number)
+
+bp_data <- bp_weight_raw %>% 
+  select(Participant,Timepoint,BP_HIGH_1:BP_LOW_3) %>% 
+  gather(key=bp_label,value=bp_value,-Participant,-Timepoint) %>% 
+  separate(bp_label,into=c("bp","bp_type","bp_num"),sep="_") %>% 
+  group_by(Participant,Timepoint,bp_type) %>% 
+  dplyr::summarize(bp_value_avg=mean(bp_value)) %>% 
+  mutate(bp_name=ifelse(bp_type=="HIGH","sys_bp","dias_bp")) %>% 
+  select(-bp_type) %>% 
+  spread(key=bp_name,value=bp_value_avg) %>% 
+  mutate(Participant=as.factor(Participant))
+height_data <- bp_weight_raw %>% 
+  select(Participant,HEIGHT) %>% 
+  na.omit() %>% 
+  group_by(Participant) %>% 
+  dplyr::summarize(HEIGHT=mean(HEIGHT)) %>% 
+  mutate(Participant=as.factor(Participant))
+
+bp_weight_data <- bp_weight_raw %>% 
+  filter(Participant %in% project_probiotic_ppts$Participant) %>% 
+  mutate(Participant=as.factor(Participant)) %>% 
+  left_join(project_probiotic_ppts,.) %>% 
+  select(Participant,Timepoint,treatment_type,WAIST_CM,WEIGHT) %>% 
+  left_join(.,height_data) %>% 
+  mutate(WEIGHT=as.numeric(WEIGHT),
+         BMI=(WEIGHT/(HEIGHT^2))) %>% 
+  left_join(.,bp_data)
+
+#metsyn blood values
+raw_lipids_insulin <- read.csv("~/R/Project_Probiotic/ProjectProbiotic_Lipid-Insulin-Alt_RawData.csv") %>% 
+  dplyr::rename(Participant_PPD=Subject.ID) %>% 
+  separate(Participant_PPD,into=c("study_id","scr_ctruid"),sep="-") %>% 
+  mutate(scr_ctruid=as.numeric(scr_ctruid)) %>% 
+  right_join(ctruid_labels,.) %>% 
+  separate(Collection.Date,into=c("month","day","year"),sep = "/",remove=FALSE) %>%
+  select(Participant,month,day,year,triglycerides:insulin) %>% 
+  right_join(date_raw_labels,.) %>% 
+  select(Participant,Timepoint,triglycerides:insulin)
+raw_glucose <- read.csv("~/R/Project_Probiotic/ProjectProbiotic_Glucose_RawData.csv") %>% 
+  separate(Participant_PPID,into=c("study_id","scr_ctruid"),sep="-") %>% 
+  mutate(scr_ctruid=as.numeric(scr_ctruid)) %>% 
+  right_join(ctruid_labels,.) %>% 
+  separate(Visit_Visit.Date,into=c("month","day","year"),sep = "/",remove=FALSE) %>% 
+  mutate(year=substr(year,1,4)) %>% 
+  select(Participant,month,day,year,glucose_ctru) %>% 
+  right_join(date_raw_labels,.) %>% 
+  select(Participant,Timepoint,glucose_ctru)
+
+met_syn_blood_params <- full_join(raw_lipids_insulin,raw_glucose) %>% 
+  filter(Participant %in% project_probiotic_ppts$Participant) %>% 
+  mutate(Participant = as.factor(Participant)) %>% 
+  right_join(project_probiotic_ppts,.)
+```
+
+Demographics information: Calculate averages for each group at baseline
+-no sig. differences in the groups at baseline
+```{r}
+met_syn_baseline_avg <- met_syn_blood_params %>% 
+  filter(Timepoint %in% c(0:3)) %>% 
+  gather(key=param,value=param_value,triglycerides:glucose_ctru) %>% 
+  group_by(treatment_type,param) %>% 
+  na.omit() %>% 
+  dplyr::summarize(param_value_avg=mean(param_value),
+                   param_value_sd=sd(param_value)) 
+
+#check to see if any of the baseline values are sig between probiotic and placebo 
+met_syn_baseline_avg_ppt <- met_syn_blood_params %>% 
+  filter(Timepoint %in% c(0:3)) %>% 
+  gather(key=param,value=param_value,triglycerides:glucose_ctru) %>% 
+  group_by(Participant,treatment_type,param) %>% 
+  na.omit() %>% 
+  dplyr::summarize(param_value_avg=mean(param_value)) 
+
+#NONE SIG DIFFERENT
+met_syn_param_list <- unique(met_syn_baseline_avg_ppt$param)
+for(i in met_syn_param_list){
+  ttest_obj=t.test(filter(met_syn_baseline_avg_ppt,treatment_type=="Probiotic" & param==i)$param_value_avg,
+         filter(met_syn_baseline_avg_ppt,treatment_type=="Placebo" & param==i)$param_value_avg)
+  print(i)
+  print(ttest_obj$p.value)
+}
+
+bp_weight_baseline_avg <- bp_weight_data %>% 
+  filter(Timepoint %in% c(0:3)) %>% 
+  gather(key=param,value=param_value,WAIST_CM:sys_bp) %>%
+  mutate(param_value=as.numeric(param_value)) %>% 
+  group_by(treatment_type,param) %>% 
+  na.omit() %>% 
+  dplyr::summarize(param_value_avg=mean(param_value),
+                   param_value_sd=sd(param_value))
+#check to see if any of the baseline values are sig between probiotic and placebo 
+bp_weight_baseline_avg_ppt <- bp_weight_data %>% 
+  filter(Timepoint %in% c(0:3)) %>% 
+  gather(key=param,value=param_value,WAIST_CM:sys_bp) %>%
+  mutate(param_value=as.numeric(param_value)) %>% 
+  group_by(Participant,treatment_type,param) %>% 
+  na.omit() %>% 
+  dplyr::summarize(param_value_avg=mean(param_value)) 
+
+anthro_param_list <- unique(bp_weight_baseline_avg$param)
+for(i in anthro_param_list){
+  ttest_obj=t.test(filter(bp_weight_baseline_avg_ppt,treatment_type=="Probiotic" & param==i)$param_value_avg,
+         filter(bp_weight_baseline_avg_ppt,treatment_type=="Placebo" & param==i)$param_value_avg)
+  print(i)
+  print(ttest_obj$p.value)
+}
+```
+
+
+```{r}
+paired_df_ppt <- function(df,tp_1,tp_2){
+  df <- df %>% 
+    arrange(Participant)
+  temp_1 <- df %>% 
+    filter(Timepoint_label==tp_1) 
+  temp_2 <- df %>% 
+    filter(Timepoint_label==tp_2)
+  ppt_list <- intersect(temp_1$Participant,temp_2$Participant)
+  
+  df_paired <- bind_rows(
+    filter(temp_1, Participant %in% ppt_list),
+    filter(temp_2,Participant %in% ppt_list)
+  )
+  return(df_paired)
+}
+```
+
+
+Calculate parmaeter timepoint chunks
+-Note: no sig. changes if only use one timepoint (1,2, or 3 for baseline or just 8 for late int)
+```{r}
+met_syn_all <- full_join(bp_weight_data,met_syn_blood_params)
+#saveRDS(met_syn_all,"~/R/Project_Probiotic/CLEAN_CODE/data/met_syn_all.rds")
+
+met_syn_all_tp_chunks <- met_syn_all %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(1,2,3),"Baseline",
+                                ifelse(Timepoint %in% c(4,5,6),"Early_int",
+                                       ifelse(Timepoint %in% c(7,8),"Late_int",
+                                              "Washout")))) %>% 
+  gather(key=metsyn_param,value=metsyn_value,WAIST_CM:glucose_ctru) %>% 
+  na.omit() %>% 
+  mutate(metsyn_value=as.numeric(metsyn_value)) %>% 
+  group_by(Participant,treatment_type,Timepoint_label,metsyn_param) %>% 
+  dplyr::summarize(metsyn_value_tp_avg=mean(metsyn_value,na.rm=TRUE)) %>% 
+  arrange(Participant) 
+
+met_syn_all_tp_chunks <- paired_df_ppt(met_syn_all_tp_chunks,"Baseline","Late_int")
+
+#check baseline to late_int
+# all_param_list <- unique(met_syn_all_tp_chunks$metsyn_param)
+all_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM")
+
+all_param_paired_ttest_probiotic <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks,treatment_type=="Probiotic" & Timepoint_label=="Baseline" & metsyn_param==i)$metsyn_value_tp_avg,
+                   filter(met_syn_all_tp_chunks,treatment_type=="Probiotic" & Timepoint_label=="Late_int" & metsyn_param==i)$metsyn_value_tp_avg,
+                   paired=TRUE)
+  all_param_paired_ttest_probiotic = c(all_param_paired_ttest_probiotic,ttest_obj$p.value)
+}
+all_param_paired_ttest_probiotic_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_paired_ttest_probiotic) %>% 
+  mutate(treatment_type="Probiotic",
+         pvalue_adj=p.adjust(all_param_paired_ttest_probiotic,method="BH"))
+
+all_param_paired_ttest_placebo <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks,treatment_type=="Placebo" & Timepoint_label=="Baseline" & metsyn_param==i)$metsyn_value_tp_avg,
+                   filter(met_syn_all_tp_chunks,treatment_type=="Placebo" & Timepoint_label=="Late_int" & metsyn_param==i)$metsyn_value_tp_avg,
+                   paired=TRUE)
+  all_param_paired_ttest_placebo = c(all_param_paired_ttest_placebo,ttest_obj$p.value)
+
+}
+all_param_paired_ttest_placebo_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_paired_ttest_placebo) %>% 
+  mutate(treatment_type="Placebo",
+         pvalue_adj=p.adjust(all_param_paired_ttest_probiotic,method="BH"))
+
+
+all_param_paired_ttest <- bind_rows(all_param_paired_ttest_probiotic_df,
+                                    all_param_paired_ttest_placebo_df) %>% 
+  select(treatment_type,metsyn_param,pvalue_ttest,pvalue_adj) 
+
+```
+Met syn parameters across baselien and intervention for participants with 3 params or more
+```{r}
+#check baseline to late_int
+# all_param_list <- unique(met_syn_all_tp_chunks$metsyn_param)
+all_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM","insulin","ldl_chol","alt")
+
+all_param_paired_ttest_probiotic_3param <- c()
+for(i in all_param_list){
+  df_in <- select(met_syn_all,Participant,Timepoint,all_of(i)) %>% 
+    filter(Participant %in% participant_3filt_vect & Timepoint %in% c(3,10)) %>% 
+    spread(key=Timepoint,value=i) %>% 
+    na.omit
+  ttest_obj=t.test(df_in$`3`,
+                   df_in$`10`,
+                   paired=TRUE)
+  all_param_paired_ttest_probiotic_3param = c(all_param_paired_ttest_probiotic_3param,ttest_obj$p.value)
+}
+all_param_paired_ttest_probiotic_3param_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_paired_ttest_probiotic_3param) %>% 
+  mutate(treatment_type="Probiotic",
+         pvalue_adj=p.adjust(all_param_paired_ttest_probiotic_3param,method="BH"))
+
+
+met_syn_all_prob_3param <- met_syn_all %>% 
+  gather(key=metsyn_param,value=metsyn_value,-Participant,-Timepoint,-treatment_type) %>% 
+  filter(metsyn_param %in% all_param_list & Timepoint %in% c(3,10)) %>% 
+  spread(key=Timepoint,value=metsyn_value) %>% 
+  na.omit %>% 
+  mutate(sign=ifelse(treatment_type=="Placebo","Placebo",ifelse(`10`-`3`>0,"Increase","Decrease"))) %>% 
+  gather(key=Timepoint,value=metsyn_value,`3`,`10`)
+met_syn_all_prob_3param$Timepoint %<>% factor(levels = c("3","10"))
+# ggplot(met_syn_all_tp_chunks_prob_3param,aes(x=Timepoint_label,y=metsyn_value_tp_avg))+
+#   geom_boxplot()+
+#   facet_wrap(~metsyn_param,scales="free")
+
+#plot metsyn params only
+ggplot(met_syn_all_prob_3param,aes(x=Timepoint,y=metsyn_value,col=sign,group=Participant))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~metsyn_param,scales="free")+
+  theme_classic()+
+  scale_color_manual(values=c("#4575b4", "#d73027","grey"))
+
+ms_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM")
+ggplot(filter(met_syn_all_prob_3param,metsyn_param %in% ms_param_list),aes(x=treatment_type,y=metsyn_value,colour=Timepoint,fill=treatment_type))+
+  geom_boxplot()+
+  facet_wrap(~metsyn_param,scales="free")+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  scale_color_manual(values=c("black", "black"))+
+  theme(text = element_text(size=17))
+#ggsave(paste(save_figure_path,"metsyn_change_3param_boxplot.pdf"),width=8.75,height = 5.8)
+
+#plot other blood values not in the ms params
+extra_param_list <- c("insulin","ldl_chol","alt")
+ggplot(filter(met_syn_all_prob_3param,metsyn_param %in% extra_param_list),aes(x=treatment_type,y=metsyn_value,colour=Timepoint,fill=treatment_type))+
+  geom_boxplot()+
+  facet_wrap(~metsyn_param,scales="free")+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  scale_color_manual(values=c("black", "black"))+
+  theme(text = element_text(size=17))
+
+#ggsave(paste(save_figure_path,"metsyn_change_3param_extra_boxplot.pdf"),width=8.75,height = 5.8)
+
+```
+
+
+Calculate to see if anyone changed their threshold numbers from beginning of study to end (tp8)
+```{r}
+met_syn_tp8_male_white <- met_syn_all %>% 
+  right_join(unique(select(met_syn_screening,Participant,Gender,Ethnicity)),.) %>% 
+  filter(Timepoint==8 & Gender=="Male" & Ethnicity=="White") %>% 
+  unique
+met_syn_tp8_male_NONwhite <- met_syn_all %>% 
+  
+  right_join(unique(select(met_syn_screening,Participant,Gender,Ethnicity)),.) %>% 
+  filter(Timepoint==8 & Gender=="Male" & Ethnicity!="White")
+
+met_syn_tp8_female_white <- met_syn_all %>% 
+  right_join(unique(select(met_syn_screening,Participant,Gender,Ethnicity)),.) %>% 
+  filter(Timepoint==8 & Gender=="Female" & Ethnicity=="White")
+met_syn_tp8_female_NONwhite <- met_syn_all %>% 
+  right_join(unique(select(met_syn_screening,Participant,Gender,Ethnicity)),.) %>% 
+  filter(Timepoint==8 & Gender=="Female" & Ethnicity!="White")
+
+#IDF guidlines for white men
+met_syn_tp8_male_white_idf <- met_syn_tp8_male_white %>% 
+  mutate(waist_idf=ifelse(WAIST_CM >=37,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(hdl_chol<40,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose_ctru>=100,1,0)) 
+
+#IDF guidlines for non-white men
+met_syn_tp8_male_NONwhite_idf <- met_syn_tp8_male_NONwhite %>% 
+  mutate(waist_idf=ifelse(WAIST_CM >=35,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(hdl_chol<40,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose_ctru>=100,1,0)) 
+
+#IDF guidlines for white women
+met_syn_tp8_female_white_idf <- met_syn_tp8_female_white %>% 
+  mutate(waist_idf=ifelse(WAIST_CM >=31.5,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(hdl_chol<50,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose_ctru>=100,1,0)) 
+
+#IDF guidlines for non-white women
+met_syn_tp8_female_NONwhite_idf <- met_syn_tp8_female_NONwhite %>% 
+  mutate(waist_idf=ifelse(WAIST_CM >=31.5,1,0),
+         trig_idf=ifelse(triglycerides>150,1,0),
+         hdl_idf=ifelse(hdl_chol<50,1,0),
+         sys_bp_idf=ifelse(sys_bp>=130,1,0),
+         dias_bp_idf=ifelse(dias_bp>=85,1,0),
+         glucose_idf=ifelse(glucose_ctru>=100,1,0)) 
+
+met_syn_tp8_idf_all <- bind_rows(met_syn_tp8_male_white_idf,
+                                       met_syn_tp8_male_NONwhite_idf,
+                                       met_syn_tp8_female_white_idf,
+                                       met_syn_tp8_female_NONwhite_idf)
+
+
+met_syn_screening_idf_threshold_gather <- met_syn_screening_idf_all %>% 
+  select(Participant,treatment_type,waist_idf:glucose_idf) %>% 
+  gather(key=metsyn_param,value=screening_threshold,-Participant,-treatment_type)
+met_syn_tp8_idf_threshold_gather <- met_syn_tp8_idf_all %>% 
+  select(Participant,treatment_type,waist_idf:glucose_idf) %>% 
+  gather(key=metsyn_param,value=tp8_threshold,-Participant,-treatment_type)
+
+met_syn_screen_tp8_threshold <- inner_join(met_syn_screening_idf_threshold_gather,met_syn_tp8_idf_threshold_gather) %>% 
+  mutate(threshold_change=tp8_threshold-screening_threshold) 
+  
+met_syn_screen_tp8_threshold_spread <- met_syn_screen_tp8_threshold %>% 
+  select(Participant,treatment_type,metsyn_param,threshold_change) %>% 
+  spread(key=metsyn_param,value=threshold_change)
+
+#calculate average change for each group
+all_param_list <- unique(met_syn_screen_tp8_threshold$metsyn_param)
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_screen_tp8_threshold,treatment_type=="Probiotic" & metsyn_param==i)$threshold_change,
+         filter(met_syn_screen_tp8_threshold,treatment_type=="Placebo" & metsyn_param==i)$threshold_change)
+  print(i)
+  print(ttest_obj$p.value)
+}
+
+met_syn_screen_tp8_threshold_group <- met_syn_screen_tp8_threshold %>% 
+  group_by(treatment_type,metsyn_param) %>% 
+  dplyr::summarize(avg_thresh_change=mean(threshold_change)) %>% 
+  spread(key=metsyn_param,value=avg_thresh_change)
+```
+
+Calculate percentage change from baseline to end of intervention for only MetSyn parameters
+```{r}
+met_syn_all_tp_chunks_baseline_percen <- met_syn_all_tp_chunks %>% 
+  spread(key=Timepoint_label,value=metsyn_value_tp_avg) %>% 
+  mutate(Baseline_lateInt_percen=(Late_int-Baseline)/Baseline) %>% 
+  select(Participant,treatment_type,metsyn_param,Baseline_lateInt_percen) %>% 
+  spread(key=metsyn_param,value=Baseline_lateInt_percen) %>% 
+  select(sys_bp,dias_bp,glucose_ctru,hdl_chol,triglycerides,WAIST_CM) %>% 
+  ungroup() #%>%
+  # filter(! Participant %in% c(7036,7038))
+
+met_syn_all_tp_chunks_baseline_percen_HM <-  dplyr::select(met_syn_all_tp_chunks_baseline_percen,sys_bp:WAIST_CM) %>% as.matrix(.)
+rownames(met_syn_all_tp_chunks_baseline_percen_HM) <- met_syn_all_tp_chunks_baseline_percen$Participant
+
+met_syn_percen_base_change_idf_hmap <- Heatmap(scale(met_syn_all_tp_chunks_baseline_percen_HM),
+        name="Screening Levels",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=met_syn_all_tp_chunks_baseline_percen$treatment_type,
+        na_col = "black",
+        #row_title="Transcript class",
+        border=FALSE,
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=TRUE,
+        # row_order = order(as.numeric(rownames(anthro_avgs_screen_thresholds_HM))),
+        # column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        #clustering_method_columns="ward.D2",
+        clustering_distance_rows="euclidean",
+        clustering_method_rows="ward.D",
+        row_dend_width=unit(30,"mm"),
+        column_dend_height=unit(30,"mm"),
+        rect_gp = gpar(col = "white", lwd = 2))
+met_syn_percen_base_change_idf_hmap
+
+# prob_responders <- c(7041,7031,7001,7018,7002,7038,7050,7012,7009,7017,7046,7006,7019,7047,7023,7015,7026,7005)
+# prob_responders <- c(7046,7006,7001,7050,7017,7018,7047,7009,7019,7026,7023,7015,7005)
+# prob_responders <- c(7041,7031,7002,7006,7046,7001,7018,7009,7050,7023,7047,7017,7015,7026,7005)
+
+```
+Calculate percent change in all blood parameters (HM) 
+- group R and NR
+```{r}
+met_syn_all_tp_chunks_baseline_percen <- met_syn_all_tp_chunks %>% 
+  spread(key=Timepoint_label,value=metsyn_value_tp_avg) %>% 
+  mutate(Baseline_lateInt_percen=(Late_int-Baseline)/Baseline) %>% 
+  select(Participant,treatment_type,metsyn_param,Baseline_lateInt_percen) %>% 
+  spread(key=metsyn_param,value=Baseline_lateInt_percen) %>% 
+  # select(sys_bp,dias_bp,glucose_ctru,hdl_chol,triglycerides,WAIST_CM) %>% 
+  ungroup() #%>%
+  # filter(! Participant %in% c(7036,7038))
+
+met_syn_all_tp_chunks_baseline_percen_HM <-  dplyr::select(met_syn_all_tp_chunks_baseline_percen,alt,dias_bp,glucose_ctru,hdl_chol,insulin,ldl_chol,sys_bp,triglycerides,WAIST_CM) %>% as.matrix(.)
+rownames(met_syn_all_tp_chunks_baseline_percen_HM) <- met_syn_all_tp_chunks_baseline_percen$Participant
+
+met_syn_percen_base_change_idf_hmap <- Heatmap(met_syn_all_tp_chunks_baseline_percen_HM,
+        name="Percent change from baseline",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=met_syn_all_tp_chunks_baseline_percen$treatment_type,
+        na_col = "black",
+        #row_title="Transcript class",
+        border=FALSE,
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=TRUE,
+        # row_order = order(as.numeric(rownames(anthro_avgs_screen_thresholds_HM))),
+        # column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        #clustering_method_columns="ward.D2",
+        clustering_distance_rows="euclidean",
+        clustering_method_rows="ward.D",
+        row_dend_width=unit(30,"mm"),
+        column_dend_height=unit(30,"mm"),
+        rect_gp = gpar(col = "white", lwd = 2))
+met_syn_percen_base_change_idf_hmap
+
+# prob_responders <- c(7041,7031,7001,7018,7002,7038,7050,7012,7009,7017,7046,7006,7019,7047,7023,7015,7026,7005)
+# prob_responders <- c(7046,7006,7001,7050,7017,7018,7047,7009,7019,7026,7023,7015,7005)
+# prob_responders <- c(7041,7031,7002,7006,7046,7001,7018,7009,7050,7023,7047,7017,7015,7026,7005)
+prob_responders <- c(7041,7006,7027,7047,7002,7001,7050,7018,7009,7012,7015,7023,7005,7017) #with tp 1,2,3,7,8
+#prob_responders <- c(7041,7046,7047,7012,7006,7027,7023,7001,7002,7024,7050,7018,7015,7017,7005) #with tp 2,8
+```
+see if percent change correlates to baseline levels
+```{r}
+met_syn_all_tp_chunks_baseline_percen_all <- met_syn_all_tp_chunks %>% 
+  spread(key=Timepoint_label,value=metsyn_value_tp_avg) %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")),
+         Baseline_lateInt_percen=(Late_int-Baseline)/Baseline)
+
+met_syn_all_tp_chunks_baseline_percen_all_trig <- met_syn_all_tp_chunks_baseline_percen_all %>% 
+  filter(metsyn_param=="triglycerides")
+cor.test(met_syn_all_tp_chunks_baseline_percen_all_trig$Baseline,met_syn_all_tp_chunks_baseline_percen_all_trig$Baseline_lateInt_percen)
+
+met_syn_all_tp_chunks_baseline_percen_all_trig_prob <- met_syn_all_tp_chunks_baseline_percen_all_trig %>% 
+  filter(treatment_type=="Probiotic")
+cor.test(met_syn_all_tp_chunks_baseline_percen_all_trig_prob$Baseline,met_syn_all_tp_chunks_baseline_percen_all_trig_prob$Baseline_lateInt_percen)
+
+met_syn_all_tp_chunks_baseline_percen_all_trig_plac <- met_syn_all_tp_chunks_baseline_percen_all_trig %>% 
+  filter(treatment_type=="Placebo")
+cor.test(met_syn_all_tp_chunks_baseline_percen_all_trig_plac$Baseline,met_syn_all_tp_chunks_baseline_percen_all_trig_plac$Baseline_lateInt_percen)
+
+met_syn_all_tp_chunks_baseline_percen_all_trig_prob_R <- met_syn_all_tp_chunks_baseline_percen_all_trig %>% 
+  filter(prob_response=="Responder")
+cor.test(met_syn_all_tp_chunks_baseline_percen_all_trig_prob_R$Baseline,met_syn_all_tp_chunks_baseline_percen_all_trig_prob_R$Baseline_lateInt_percen)
+
+met_syn_all_tp_chunks_baseline_percen_all_trig_prob_NR <- met_syn_all_tp_chunks_baseline_percen_all_trig %>% 
+  filter(prob_response=="Non-responder")
+cor.test(met_syn_all_tp_chunks_baseline_percen_all_trig_prob_NR$Baseline,met_syn_all_tp_chunks_baseline_percen_all_trig_prob_NR$Baseline_lateInt_percen)
+
+ggplot(met_syn_all_tp_chunks_baseline_percen_all_trig,aes(x=Baseline,y=Baseline_lateInt_percen,colour=prob_response))+
+  geom_point()+
+  theme_classic()
+
+ggplot(met_syn_all_tp_chunks_baseline_percen_all_trig_prob_R,aes(x=Baseline,y=Baseline_lateInt_percen,colour=prob_response))+
+  geom_point(col="#2166ac",size=3)+
+  theme_classic()+
+  xlab("Baseline triglyceride levels (mg/dL)")+
+  ylab("Percent change from baseline to intervention")+
+  stat_smooth(method="lm", se=FALSE,col="black")+
+  theme(text = element_text(size=16))
+#ggsave(paste(save_figure_path,"trig_change_corplot.pdf"),width=10,height = 8)
+
+##same analysis but for blood pressure
+met_syn_all_tp_chunks_baseline_percen_all_diasBP <- met_syn_all_tp_chunks_baseline_percen_all %>% 
+  filter(metsyn_param=="dias_bp")
+
+met_syn_all_tp_chunks_baseline_percen_all_diasBP_prob_R <- met_syn_all_tp_chunks_baseline_percen_all_diasBP %>% 
+  filter(prob_response=="Responder")
+cor.test(met_syn_all_tp_chunks_baseline_percen_all_diasBP_prob_R$Baseline,met_syn_all_tp_chunks_baseline_percen_all_diasBP_prob_R$Baseline_lateInt_percen)
+```
+
+
+unpaired ttests between probiotic and placebo group from baseline to end of intervention (percent change)
+```{r}
+met_syn_all_tp_chunks_baseline_percen_gather <- met_syn_all_tp_chunks_baseline_percen %>% 
+  gather(key=metsyn_param,value=value_percen_change,alt:WEIGHT)
+
+all_param_list <- unique(met_syn_all_tp_chunks_baseline_percen_gather$metsyn_param)
+all_param_unpaired_ttest <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks_baseline_percen_gather,treatment_type=="Probiotic" & metsyn_param==i)$value_percen_change,
+                   filter(met_syn_all_tp_chunks_baseline_percen_gather,treatment_type=="Placebo" & metsyn_param==i)$value_percen_change)
+  all_param_unpaired_ttest = c(all_param_unpaired_ttest,ttest_obj$p.value)
+}
+all_param_unpaired_ttest_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest) %>% 
+  mutate(pvalue_adj=p.adjust(all_param_unpaired_ttest,method="fdr"))
+
+```
+
+unpaired ttests between probiotic responders and non-responders from baseline to end of intervention (percent change)
+```{r}
+all_param_list <- c("alt","dias_bp","glucose_ctru","hdl_chol","insulin","ldl_chol","sys_bp","triglycerides","WAIST_CM")
+met_syn_all_tp_chunks_baseline_percen_gather_RNR <- met_syn_all_tp_chunks_baseline_percen_gather %>%
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")))
+
+all_param_unpaired_ttest <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks_baseline_percen_gather_RNR,prob_response=="Responder" & metsyn_param==i)$value_percen_change,
+                   filter(met_syn_all_tp_chunks_baseline_percen_gather_RNR,prob_response=="Non-responder" & metsyn_param==i)$value_percen_change)
+  all_param_unpaired_ttest = c(all_param_unpaired_ttest,ttest_obj$p.value)
+}
+all_param_unpaired_RNR_ttest_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest) %>% 
+  mutate(pvalue_adj=p.adjust(all_param_unpaired_ttest,method="fdr"))
+```
+
+Look at metsyn changes in responders and non-responders of the probiotic vs. placebo group
+```{r}
+#paired ttest for probiotic group
+all_param_list <- c("alt","dias_bp","glucose_ctru","hdl_chol","insulin","ldl_chol","sys_bp","triglycerides","WAIST_CM")
+
+all_param_paired_ttest_probiotic<- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks,treatment_type=="Probiotic" & Timepoint_label=="Baseline" & metsyn_param==i)$metsyn_value_tp_avg,
+                   filter(met_syn_all_tp_chunks,treatment_type=="Probiotic" & Timepoint_label=="Late_int" & metsyn_param==i)$metsyn_value_tp_avg,
+                   paired=TRUE)
+  all_param_paired_ttest_probiotic = c(all_param_paired_ttest_probiotic,ttest_obj$p.value)
+}
+all_param_paired_ttest_probiotic_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_paired_ttest_probiotic,
+                                                  pvalue_adj=p.adjust(all_param_paired_ttest_probiotic,method = "fdr")) %>% 
+  mutate(treatment_type="Probiotic")
+
+
+#paired ttest for probiotic responders
+# all_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM")
+all_param_list <- c("alt","dias_bp","glucose_ctru","hdl_chol","insulin","ldl_chol","sys_bp","triglycerides","WAIST_CM")
+
+all_param_paired_ttest_probiotic_resp <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks,Participant %in% prob_responders & Timepoint_label=="Baseline" & metsyn_param==i)$metsyn_value_tp_avg,
+                   filter(met_syn_all_tp_chunks,Participant %in% prob_responders & Timepoint_label=="Late_int" & metsyn_param==i)$metsyn_value_tp_avg,
+                   paired=TRUE)
+  all_param_paired_ttest_probiotic_resp = c(all_param_paired_ttest_probiotic_resp,ttest_obj$p.value)
+}
+all_param_paired_ttest_probiotic_responders_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_paired_ttest_probiotic_resp,
+                                                  pvalue_adj=p.adjust(all_param_paired_ttest_probiotic_resp,method = "BH")) %>% 
+  mutate(treatment_type="Probiotic_responders")
+
+#unpaired between responders and placebo
+# all_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM")
+all_param_unpaired_ttest_responders <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks_baseline_percen_gather,Participant %in% prob_responders & metsyn_param==i)$value_percen_change,
+                   filter(met_syn_all_tp_chunks_baseline_percen_gather,treatment_type=="Placebo" & metsyn_param==i)$value_percen_change)
+  all_param_unpaired_ttest_responders = c(all_param_unpaired_ttest_responders,ttest_obj$p.value)
+}
+all_param_unpaired_ttest_responders_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest_responders,
+                                                  pvalue_adj=p.adjust(all_param_unpaired_ttest_responders,method = "BH")) 
+
+#unpaired between NONresponders and placebo
+# all_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM")
+all_param_unpaired_ttest_NONresponders <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks_baseline_percen_gather,treatment_type=="Probiotic" & !(Participant %in% prob_responders) & metsyn_param==i)$value_percen_change,
+                   filter(met_syn_all_tp_chunks_baseline_percen_gather,treatment_type=="Placebo" & metsyn_param==i)$value_percen_change)
+  all_param_unpaired_ttest_NONresponders = c(all_param_unpaired_ttest_NONresponders,ttest_obj$p.value)
+}
+all_param_unpaired_ttest_NONresponders_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest_NONresponders,
+                                                  pvalue_adj=p.adjust(all_param_unpaired_ttest_NONresponders,method = "BH")) 
+
+#unpaired between responders and placebo CLUSTER
+# all_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM")
+all_param_unpaired_ttest_responders_placeClust <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks_baseline_percen_gather,Participant %in% prob_responders & metsyn_param==i)$value_percen_change,
+                   filter(met_syn_all_tp_chunks_baseline_percen_gather,treatment_type=="Placebo" & !Participant %in% c(7016,7052) & metsyn_param==i)$value_percen_change)
+  all_param_unpaired_ttest_responders_placeClust = c(all_param_unpaired_ttest_responders_placeClust,ttest_obj$p.value)
+}
+all_param_unpaired_ttest_responders_placClust_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest_responders_placeClust,
+                                                  pvalue_adj=p.adjust(all_param_unpaired_ttest_responders_placeClust,method = "BH")) 
+
+
+#Probiotic responders thresholds at screening
+t.test(filter(met_syn_screening_idf_clean,Participant %in% prob_responders)$idf_threshold_sum,
+       filter(met_syn_screening_idf_clean,treatment_type=="Probiotic" & !Participant %in% prob_responders)$idf_threshold_sum)
+
+# all_param_list <- c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM")
+all_param_unpaired_ttest_probiotic_resp_baseline <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks,Participant %in% prob_responders & Timepoint_label=="Baseline" & metsyn_param==i)$metsyn_value_tp_avg,
+                   filter(met_syn_all_tp_chunks,treatment_type=="Probiotic" & !Participant %in% prob_responders & Timepoint_label=="Baseline" & metsyn_param==i)$metsyn_value_tp_avg,
+                   paired=F)
+  all_param_unpaired_ttest_probiotic_resp_baseline = c(all_param_unpaired_ttest_probiotic_resp_baseline,ttest_obj$p.value)
+}
+all_param_unpaired_ttest_probiotic_resp_baseline_df <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest_probiotic_resp_baseline,
+                                                  pvalue_adj=p.adjust(all_param_unpaired_ttest_probiotic_resp_baseline,method = "BH")) 
+```
+
+Baseline and late_intervention for probiotic responders vs. non-responders
+```{r}
+#baseline
+all_param_unpaired_ttest_baseline_ProbRNR <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks_baseline_percen_all, prob_response=="Responder" &
+                            metsyn_param==i)$Baseline,
+                   filter(met_syn_all_tp_chunks_baseline_percen_all, prob_response=="Non-responder" &
+                            metsyn_param==i)$Baseline)
+  all_param_unpaired_ttest_baseline_ProbRNR = c(all_param_unpaired_ttest_baseline_ProbRNR,ttest_obj$p.value)
+}
+all_param_unpaired_ttest_baseline_ProbRNR <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest_baseline_ProbRNR,
+                                                  pvalue_adj=p.adjust(all_param_unpaired_ttest_baseline_ProbRNR,method = "BH")) 
+
+#late intervention
+all_param_unpaired_ttest_lateInt_ProbRNR <- c()
+for(i in all_param_list){
+  ttest_obj=t.test(filter(met_syn_all_tp_chunks_baseline_percen_all, prob_response=="Responder" &
+                            metsyn_param==i)$Late_int,
+                   filter(met_syn_all_tp_chunks_baseline_percen_all, prob_response=="Non-responder" &
+                            metsyn_param==i)$Late_int)
+  all_param_unpaired_ttest_lateInt_ProbRNR = c(all_param_unpaired_ttest_lateInt_ProbRNR,ttest_obj$p.value)
+}
+all_param_unpaired_ttest_lateInt_ProbRNR <- data.frame(metsyn_param=all_param_list,
+                                                  pvalue_ttest=all_param_unpaired_ttest_lateInt_ProbRNR,
+                                                  pvalue_adj=p.adjust(all_param_unpaired_ttest_lateInt_ProbRNR,method = "BH")) 
+```
+
+
+Boxplots for MetSyn parameters over time
+```{r}
+met_syn_all_main <- met_syn_all %>% 
+  mutate(WAIST_CM=as.numeric(WAIST_CM)*2.54) %>% 
+  gather(key=metsyn_param,value=metsyn_value,-Participant,-Timepoint,-treatment_type) %>% 
+  mutate(metsyn_value=as.numeric(metsyn_value),
+         Timepoint=as.factor(Timepoint)) %>% 
+  filter(metsyn_param %in% c("dias_bp","glucose_ctru","hdl_chol","sys_bp","triglycerides","WAIST_CM"),
+         Timepoint %in% c(2,3,7,8,10))
+
+ggplot(met_syn_all_main,aes(x=Timepoint,y=metsyn_value,fill=treatment_type))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  facet_wrap(~metsyn_param,scales="free")+
+  theme(text = element_text(size=18))+
+  ylab("Metabolic Syndrome Parameter Value")+
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7,8,9,10),labels=c("-4","-2","0","2", "4","6", "8","10","12","14"),name="Time (weeks)")
+ggsave(paste(save_figure_path,"metsyn_main_boxplot.pdf"),width=18.2,height = 10.5)
+
+#Blood parameters measured taht were not part of the metsyn thresholds by IDF
+
+##all timepoints
+met_syn_all_extra <- met_syn_all %>% 
+  gather(key=metsyn_param,value=metsyn_value,-Participant,-Timepoint,-treatment_type) %>% 
+  mutate(metsyn_value=as.numeric(metsyn_value)) %>% 
+  filter(metsyn_param %in% c("alt","ldl_chol","insulin") & !Timepoint %in% c(5,6)) %>% 
+  mutate(Timepoint=as.factor(Timepoint))
+
+ggplot(met_syn_all_extra,aes(x=Timepoint,y=metsyn_value,fill=treatment_type))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  facet_wrap(~metsyn_param,scales="free")+
+  theme(text = element_text(size=18))+
+  ylab("Metabolic Syndrome Parameter Value")+
+  scale_x_discrete(breaks=c(1,2,3,4,5,6,7,8,9,10),labels=c("-4","-2","0","2", "4","6", "8","10","12","14"),name="Time (weeks)")
+ggsave(paste(save_figure_path,"metsyn_extra_boxplot.pdf"),width=18.2,height = 5.5)
+
+##Timepoint chunking
+met_syn_all_tp_chunks_extra <- met_syn_all_tp_chunks %>% 
+  filter(metsyn_param %in% c("alt","ldl_chol","insulin") & Timepoint_label!="Early_int") 
+
+ggplot(met_syn_all_tp_chunks_extra,aes(x=Timepoint_label,y=metsyn_value_tp_avg,fill=treatment_type))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85", "thistle4"))+
+  facet_wrap(~metsyn_param,scales="free")+
+  theme(text = element_text(size=18))+
+  ylab("Metabolic Syndrome Parameter Value")
+
+
+##Timepoint chunking with probiotic responders vs. non responders
+met_syn_all_tp_chunks_extra_probiotic <- met_syn_all_tp_chunks_extra %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  mutate(prob_resp_group=ifelse(Participant %in% prob_responders,"Responder","Non-responder"))
+
+ggplot(met_syn_all_tp_chunks_extra_probiotic,aes(x=Timepoint_label,y=metsyn_value_tp_avg,fill=prob_resp_group))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("#b2182b", "#2166ac"))+
+  facet_wrap(~metsyn_param,scales="free")+
+  theme(text = element_text(size=18))+
+  ylab("Metabolic Syndrome Parameter Value")
+
+#paired t-tests probiotic responders
+t.test(filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group=="Responder" & metsyn_param=="alt" & Timepoint_label=="Baseline")$metsyn_value_tp_avg,
+       filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group=="Responder" & metsyn_param=="alt" & Timepoint_label=="Late_int")$metsyn_value_tp_avg,
+       paired=TRUE)
+t.test(filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group=="Responder" & metsyn_param=="insulin" & Timepoint_label=="Baseline")$metsyn_value_tp_avg,
+       filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group=="Responder" & metsyn_param=="insulin" & Timepoint_label=="Late_int")$metsyn_value_tp_avg,
+       paired=TRUE)
+t.test(filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group=="Responder" & metsyn_param=="ldl_chol" & Timepoint_label=="Baseline")$metsyn_value_tp_avg,
+       filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group=="Responder" & metsyn_param=="ldl_chol" & Timepoint_label=="Late_int")$metsyn_value_tp_avg,
+       paired=TRUE)
+
+t.test(filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group!="Responder" & metsyn_param=="alt" & Timepoint_label=="Baseline")$metsyn_value_tp_avg,
+       filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group!="Responder" & metsyn_param=="alt" & Timepoint_label=="Late_int")$metsyn_value_tp_avg,
+       paired=TRUE)
+t.test(filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group!="Responder" & metsyn_param=="insulin" & Timepoint_label=="Baseline")$metsyn_value_tp_avg,
+       filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group!="Responder" & metsyn_param=="insulin" & Timepoint_label=="Late_int")$metsyn_value_tp_avg,
+       paired=TRUE)
+t.test(filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group!="Responder" & metsyn_param=="ldl_chol" & Timepoint_label=="Baseline")$metsyn_value_tp_avg,
+       filter(met_syn_all_tp_chunks_extra_probiotic,prob_resp_group!="Responder" & metsyn_param=="ldl_chol" & Timepoint_label=="Late_int")$metsyn_value_tp_avg,
+       paired=TRUE)
+
+#difference for extra met syn features
+met_syn_all_tp_chunks_baseline_percen_ALL <- met_syn_all_tp_chunks %>% 
+  spread(key=Timepoint_label,value=metsyn_value_tp_avg) %>% 
+  mutate(Baseline_lateInt_percen=(Late_int-Baseline)/Baseline) %>% 
+  select(Participant,treatment_type,metsyn_param,Baseline_lateInt_percen) %>% 
+  spread(key=metsyn_param,value=Baseline_lateInt_percen) %>% 
+  ungroup
+
+t.test(filter(met_syn_all_tp_chunks_baseline_percen_ALL,treatment_type=="Placebo")$alt,
+       filter(met_syn_all_tp_chunks_baseline_percen_ALL,Participant %in% prob_responders)$alt)
+t.test(filter(met_syn_all_tp_chunks_baseline_percen_ALL,treatment_type=="Placebo")$ldl_chol,
+       filter(met_syn_all_tp_chunks_baseline_percen_ALL,Participant %in% prob_responders)$ldl_chol)
+t.test(filter(met_syn_all_tp_chunks_baseline_percen_ALL,treatment_type=="Placebo")$insulin,
+       filter(met_syn_all_tp_chunks_baseline_percen_ALL,Participant %in% prob_responders)$insulin)
+```
+
+
+Heatmap of threshold changes
+```{r}
+met_syn_change_idf_clean_HM <-  dplyr::select(met_syn_screen_tp8_threshold_spread,dias_bp_idf:waist_idf) %>% as.matrix(.)
+rownames(met_syn_change_idf_clean_HM) <- met_syn_screen_tp8_threshold_spread$Participant
+
+met_syn_screen_idf_hmap <- Heatmap(met_syn_change_idf_clean_HM,
+        name="Screening Levels",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=met_syn_screen_tp8_threshold_spread$treatment_type,
+        #row_title="Transcript class",
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=TRUE,
+        # row_order = order(as.numeric(rownames(anthro_avgs_screen_thresholds_HM))),
+        # column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        #clustering_method_columns="ward.D2",
+        clustering_distance_rows="euclidean",
+        clustering_method_rows="ward.D2",
+        row_dend_width=unit(30,"mm"),
+        column_dend_height=unit(30,"mm"),
+        rect_gp = gpar(col = "white", lwd = 2))
+met_syn_screen_idf_hmap
+```
+

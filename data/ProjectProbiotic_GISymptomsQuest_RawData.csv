@@ -1,0 +1,342 @@
+﻿record_id,redcap_event_name,gi1,gi2,gi3,gi4,gi5,gi6,gi7,gi8,gi9,gi10,gi11,gi13,gi14,gi15,gi16,gi16a,gi17,gi18,gi18a,gi19,gi20,gi20a,gi21,gi21a,gi22,gi22a,gi23,gi23a,gi24,gi24a,gi25,gi25a,gastrointestinal_symptoms_complete
+7001,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,2,1,4,1,1,2,,varied,3,,3,3,,3,,3,,0,,0,,0,,2
+7001,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,4,,"various times",3,,3,2,2,3,,3,,0,,0,,0,,2
+7001,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,2,2,2,,"Varies   Note that despite 10+ yrs post-menopause, I still have some kind of hormonal cycle: for five days each month, which would have been period days, I have the same ""symptoms"" as then: chapped lips, acne breakouts, tiredness, harder than normal stool, fluid retention, occasional bleeding from  hemorrhoids, feelings of incomplete bowel  movement. This has gone on for 50 years, so it's my ""normal.""  The current  questionnaire catches  me  at this time during my ""cycle.""",3,,3,2,2,3,,3,,0,,0,,0,,2
+7001,week_1_arm_1,1,1,1,1,1,1,2,1,2,3,1,6,2,1,3,,varies,1,3,1,1,4,1,3,3,,1,"ib a way I can't describe, I feel ""better."" More alert? Happier?  But also three days of intense fibromyalgia flare up and arthritis pain - then gone.",0,,0,,2
+7001,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,4,1,2,3,1,,Varies,3,,2,2,4,2,4,3,,1,"Bleeding gums! Tired alll the time, odd dreams,  can suddenly digest milk, bad fibromyalgia, never been constipated before!",0,,0,,2
+7001,week_5_arm_1,1,1,1,1,1,1,1,1,1,4,4,7,2,2,2,,"Varies ",3,,3,1,3,1,3,3,,1,"A small amount of leaking of watery stool at night; itching and irritation from that leak in am; some  bleeding from hemorrhoids when stool alternates to very hard; no more bleeding gums (appeared during the last two weeks then vanished almost overnight); skin issues on arms suddenly completely cleared up (seborreic keratoses which previously itched and bled and got burned off by dermatologist); NO libido. None for the last month! You asked!",1,"No libido. A surprise to my partner and me. We are assuming this is temporary!",0,,2
+7001,week_7_arm_1,1,1,1,1,1,1,1,1,1,2,2,5,2,1,3,,Varies,3,,1,1,2,1,2,3,,1,"I woke up amazingly clear-headed the last two days; libido came back!; felt ""better"" in some way I can't quite describe. Wanted to get started on projects I have put off.  More determination?",0,,0,,2
+7001,week_9_arm_1,1,1,1,1,1,1,1,1,1,2,2,6,2,1,2,,varesi,3,,3,1,3,3,,3,,0,,0,,0,,2
+7001,week_13_arm_1,2,1,1,1,1,1,1,1,1,4,4,7,2,2,1,,"four days without, then several each day",3,,2,1,5,3,,3,,1,"constipated then quite a bit of diarrhea; return of bleeding hemorrhoids once diarrhea kicked in.  quite a bit of fibromyalgia and arthritis pain. Not hungry, tired, cold",1,"diarrhea, pain, tiredness",1,"did nothing except go to work and come home.",2
+7002,baseline_5_arm_1,2,3,3,2,1,2,3,3,2,2,1,4,2,1,3,,"morning time and late afternoon around 6pm",1,3,3,1,1,1,2,1,3,1,"throat hurts, bad breath from acid reflex ",1,"feeling bloating, stomach ache, bad breath ",1,"I avoid eating certain food such as fried food, heavy seasoning, dairy products to avoid more pain.  ",2
+7002,baseline_3_arm_1,2,3,3,2,1,3,4,3,3,1,2,3,3,2,2,,"morning time before 8:00am",1,5,1,2,5,1,4,1,5,1,"bad breath. I can see people covering their nose as I speak.  I am in a bad mood, uncomfortable because of stomach age. I look for cloth that will cover my swelling stomach.  ",1,"Bad breath makes me feeling uncomfortable and don't want to interact with people.  My level of tolerance  to challenging situations has been reduce.",1,"Yes, absolute  The symptoms mentioned above  affect my social life. I don't want to be around people. I am afraid people would notice my bad breath. Also,  I am unconformable because of flatulences.    ",2
+7002,baseline_1_arm_1,2,3,2,2,1,2,4,3,4,2,2,3,3,2,2,,"morning time usually before 8:00am.",1,5,1,2,5,1,4,1,4,1,"slightly headaches.   feeling more tired with a strong need for a nap during the day.    Itchiness around my neck and around my eyes.",1,"avoid talking  to people because of headache and tiredness. ",1,"I isolate myself more. I went home right after work instead socializing. I rater go home early to relax and rest.",2
+7002,week_1_arm_1,3,2,2,2,1,3,3,2,3,2,2,3,2,2,2,,"morning time  before 8:00am",3,,3,3,,1,1,3,,1,"An increase of  sudden feeling of intense body heat that occur day and night. I will say it is more intense during morning and early afternoon and during the night.  This feeling comes and goes and  doesn't last too long ( 2-3 mins)",0,,0,,2
+7002,week_3_arm_1,3,2,2,2,1,2,3,2,4,2,2,3,1,2,2,,"daily bowel movements take place during the morning before 8:00AM",1,4,3,2,3,3,,1,4,1,"frequent hot flashes  throughout  the day and at night as well.",0,,1,"yes, I prefer to be alone to deal with the excessive discomfort and pain produce by gas. I refuse to take antacid pills.  I added to my daily consumption prunes to help softened stools. ",2
+7002,week_5_arm_1,3,3,2,2,1,2,3,2,4,2,3,1,3,4,1,,"AFTERNOON  AND NIGHT",1,4,2,2,4,2,3,1,5,1,"severe cramps ( only one day.  It disappeared after I defecated. )",1,cramps.,1," The pain from the  camps was very strong I couldn't be around people. I was upset and in pain. I needed space to rest.",2
+7002,week_7_arm_1,3,3,2,1,1,2,3,2,3,2,2,4,2,2,2,,"MORNING TIME. USALLY BEFORE 8:00AM",1,5,1,2,4,1,3,1,4,1,"CRAMPS, AND DULL PAIN MOSTLY BEFORE DEFECATION. IT WILL GO AWAY AFTER DEFECATION.  ",0,,1,"I DECIDED TO STAY AT HOME WEARING LOSE CLOTHES.  ",2
+7002,week_9_arm_1,2,2,3,2,1,2,3,2,3,2,1,4,2,1,3,,"My bowels are morning time mainly before 8:00am. 2 days during last week I had 2 bowels in a day. ",3,,1,1,3,3,,2,4,0,,1," -an upset stomach.   -I had smelly  flatulences.  -I had heartburns ",1,"   yes, It was very uncomfortable having an upset stomach. I had smelly  flatulences quite painful sometimes.   I had heartburns; I used Rolaids (extra strength) and apple cider vinegar to alleviate the symptoms. these symptoms made me felt uncomfortable around coworkers. ",2
+7002,week_13_arm_1,2,3,3,1,1,2,3,2,3,2,3,2,2,2,3,,"BOWELS MOVEMENTS OCCURRED SOME TIME BEFORE 8:00AM AND AFTER 6PM.",3,,1,2,3,1,2,3,,0,,1,"YES, FEELING A LOT OF GASES MAKE ME FEEL UNCOMFORTABLE AND WITH STRONG DESIRE TO EXPEL GASES TO DECREASE THE ABDOMINAL PAIN.  ",1,"I ISOLATE MYSELF TO ACCOMPLISH MY GOAL. SOMETIMES  I REINTEGRATE TO THE CONVERSATIONS AGAIN, MBUT MANY TIME I JUST GO HOME.",2
+7003,baseline_3_arm_1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0
+7003,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"early morning",3,,3,3,,3,,3,,0,,0,,0,,2
+7004,baseline_3_arm_1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0
+7005,baseline_5_arm_1,1,2,1,1,1,2,1,1,2,1,1,4,1,2,5,"I have been all my life, and continue to be, ""regularly irregular.""  no stress, just irregular.","morning, noon, and night, with no particular pattern",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,baseline_3_arm_1,1,1,1,1,1,1,1,2,1,1,1,4,1,1,3,,"No normal time. I have always been ""regularly irregular.""",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,baseline_1_arm_1,1,2,2,1,1,1,1,2,1,1,1,3,1,1,5,"I am, and always have been, regularly irregular. Bowel movements range from every other day to three times per day, in no particular pattern.  Once daily is most common, but still probably less than 50% of the time.","most common in afternoon, but ranged from 6:00AM to midnight",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"no ""usual"" time- can be anytime during waking hours.  I have always been ""regularly irregular""  as to time, frequency and form of the stool.  Only rarely do I experience constipation, or difficulty defecating.",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,week_3_arm_1,1,2,1,1,1,1,1,1,2,1,1,4,1,1,5,"I am regularly irregular.  usually once per day, but sometimes twice, and sometimes every 2nd day. stools usually ""normal,"" but sometimes loose and sometimes harder.","no set time, other than during waking hours.",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,week_5_arm_1,1,2,1,1,1,1,1,2,1,1,1,4,1,1,2,,"same as past answers: regularly irregular as to frequency, time and type.",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,5,"same as prior answers: regularly irregular","same as prior answers: regularly irregular, but never during night after go to bed",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,week_9_arm_1,1,1,2,1,1,1,1,1,1,1,1,3,1,1,5,"regularly irregular as to frequency  and time of day","regularly irregular as to frequency  and time of day",3,,3,3,,3,,3,,0,,0,,0,,2
+7005,week_13_arm_1,1,1,1,1,1,1,1,1,1,2,1,5,1,1,5,"I am regularly irregular- all of the above in no particular order","I am regularly irregular- can be anytime except during sleeping hours",3,,3,1,3,3,,3,,0,,0,,0,,2
+7006,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,,"Mainly evenings or afternoon times.",3,,3,1,1,3,,3,,0,,0,,0,,2
+7006,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,"1x daily evenings",3,,3,1,1,3,,3,,0,,0,,0,,2
+7006,baseline_1_arm_1,1,1,1,1,1,1,1,1,2,1,1,4,1,1,2,,evenings,3,,3,1,2,3,,3,,0,,0,,0,,2
+7006,week_3_arm_1,1,1,1,1,1,2,1,1,2,2,1,3,1,2,2,,"Usually at night (after 5pm), some days was midday.",3,,3,1,2,3,,3,,0,,0,,0,,2
+7006,week_5_arm_1,1,1,1,1,1,1,2,1,2,2,1,2,1,1,2,,"Afternoon or early evening",1,2,3,2,2,3,,3,,1,"More urination during middle of the night",0,,0,,2
+7006,week_7_arm_1,1,1,1,1,1,2,1,1,2,2,1,3,1,1,2,,"afternoon or evenings",3,,3,3,,3,,3,,0,,0,,0,,2
+7006,week_9_arm_1,1,1,1,1,1,1,2,1,1,1,1,4,1,2,2,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7006,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"afternoon, evenings",3,,3,3,,3,,3,,0,,0,,0,,2
+7007,baseline_5_arm_1,1,1,1,1,1,1,2,1,1,1,1,4,1,1,2,,"Usually aroun 8 am.",3,,3,3,,3,,3,,0,,0,,0,,2
+7007,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"7:30-8:00 am",3,,3,3,,3,,3,,0,,0,,0,,2
+7007,baseline_1_arm_1,1,2,1,1,1,1,2,1,2,1,1,4,1,1,2,,"8:00 am",3,,3,3,,3,,3,,0,,0,,0,,2
+7007,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,2,2,,"8 am or so",3,,3,2,1,3,,3,,0,,0,,0,,2
+7007,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,2,2,2,,"Usually 8 am or so",3,,3,3,,3,,3,,0,,0,,0,,2
+7007,week_5_arm_1,1,1,1,1,1,1,2,1,1,1,1,4,2,1,2,,"About 8 am",3,,3,3,,3,,3,,0,,0,,0,,2
+7007,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,2,2,2,,"About 8 am",3,,3,2,2,3,,3,,0,,0,,0,,2
+7007,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,2,1,2,,"Morning around 8:00",3,,3,3,,3,,3,,0,,0,,0,,2
+7007,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,2,2,1,2,2,,"Mornings around 8:00",3,,3,2,1,3,,3,,0,,0,,0,,2
+7008,baseline_5_arm_1,1,1,1,1,2,1,1,1,2,2,1,4,2,1,3,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7008,baseline_3_arm_1,3,1,1,1,2,2,2,2,3,3,1,6,2,1,4,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7009,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,2,2,,"following breakfast",3,,3,1,1,3,,3,,0,,0,,0,,2
+7009,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,,3,,3,1,1,3,,3,,0,,0,,0,,2
+7009,baseline_1_arm_1,1,1,1,1,1,2,1,1,1,1,1,3,1,1,2,,"following breakfast",3,,3,3,,3,,3,,0,,0,,0,,2
+7009,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,2,2,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7009,week_3_arm_1,1,1,1,1,1,1,1,1,2,2,1,4,1,1,2,,,1,2,3,1,1,3,,3,,0,,0,,0,,2
+7009,week_5_arm_1,1,1,1,1,1,1,1,1,2,1,1,4,1,1,2,,7-8am,1,1,3,1,1,3,,3,,0,,0,,0,,2
+7009,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,"Morning following breakfast",2,1,3,3,,1,1,3,,0,,0,,0,,2
+7009,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,,"morning following breakfast",3,,3,2,2,2,2,3,,0,,0,,0,,2
+7009,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,2,,"morning following breakfast",3,,3,3,,2,2,3,,0,,0,,0,,2
+7010,baseline_3_arm_1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0
+7012,baseline_5_arm_1,1,2,1,1,1,1,1,1,1,1,1,4,1,1,2,,"Mornings between 7:30 - 8:30 ",3,,3,3,,3,,3,,0,,0,,0,,2
+7012,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,,"morning 7:00 - 8:30 am",3,,3,2,3,3,,3,,0,,0,,0,,2
+7012,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,2,1,6,1,1,2,,"mornings 7-9:00 ",3,,3,1,1,1,1,3,,0,,0,,0,,2
+7012,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"mornings as usual",3,,3,3,,3,,3,,0,,0,,0,,2
+7012,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,2,,"Morning as usual",3,,3,1,1,3,,3,,0,,0,,0,,2
+7012,week_5_arm_1,1,1,1,1,1,4,1,1,1,1,2,2,1,1,2,,"Morning as normal.  Occasional 2nd bowel movement in the late afternoon.",3,,1,2,1,2,1,3,,0,,0,,0,,2
+7012,week_7_arm_1,1,1,1,1,1,1,1,1,2,2,1,5,1,1,2,,"mornings ",1,1,3,1,1,2,1,3,,0,,0,,0,,2
+7012,week_9_arm_1,1,1,1,1,1,1,1,1,1,3,4,6,1,1,2,,"mornings  + evenings on one or two days",3,,1,1,4,3,,3,,0,,0,,0,,2
+7012,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,Normal,3,,3,3,,3,,3,,0,,0,,0,,2
+7013,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,Morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7013,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"Morning regularly",3,,3,3,,3,,3,,0,,0,,0,,2
+7013,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"Usually morning ",3,,3,3,,3,,3,,0,,0,,0,,2
+7013,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"Morning ",3,,3,3,,3,,3,,0,,0,,0,,2
+7013,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,AM,3,,3,3,,3,,3,,0,,0,,0,,2
+7013,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,2,,AM,3,,3,3,,3,,3,,0,,0,,0,,2
+7013,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,AM,3,,3,3,,3,,3,,0,,0,,0,,2
+7013,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,Am,3,,3,3,,3,,3,,0,,0,,0,,2
+7014,baseline_5_arm_1,1,1,1,1,1,2,2,2,1,2,1,6,2,1,3,,"Early AM (7-8AM)  Afternoon (3-5PM)",3,,3,3,,3,,3,,0,,0,,0,,2
+7014,baseline_3_arm_1,1,1,1,1,1,2,2,1,1,2,1,3,2,1,3,,"Early morning and late aftenoon",3,,3,3,,3,,3,,0,,0,,0,,2
+7014,baseline_1_arm_1,1,1,1,1,1,1,2,1,1,2,1,6,2,1,3,,"Early AM.  Mid-afternoon.",3,,3,3,,3,,3,,0,,0,,0,,2
+7014,week_1_arm_1,1,1,1,1,1,3,2,1,1,2,1,4,2,1,3,,"Early AM, late afternoon",3,,3,2,3,3,,1,3,0,,0,,0,,2
+7014,week_3_arm_1,1,1,1,1,1,1,2,1,1,2,1,6,2,2,3,,"Early AM and late PM",3,,2,1,3,2,2,1,4,0,,0,,0,,2
+7014,week_5_arm_1,2,1,1,1,1,2,2,1,1,2,1,5,2,1,3,,"Early AM and late afternoon",3,,3,1,2,3,,1,5,0,,0,,0,,2
+7014,week_7_arm_1,1,1,1,1,1,2,2,2,1,3,2,5,2,1,3,,"Early AM, late afternoon",3,,3,1,3,3,,3,,0,,0,,0,,2
+7014,week_9_arm_1,1,1,1,1,1,2,2,2,1,3,2,5,2,1,4,,"Early AM, Midday, Late afternoon",3,,1,1,4,3,,3,,0,,0,,0,,2
+7014,week_13_arm_1,1,1,1,1,1,1,1,1,1,2,1,4,1,1,3,,"Early AM, late afternoon",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,3,,"generally in the mornings",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,5,"often once daily, but sometimes 2 times per day","generally in the morning",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,5,"generally once per day.  Some days 2-3","generally in the morning",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,week_1_arm_1,1,2,1,1,1,1,1,1,1,1,1,5,1,1,5,"some days once per day, several days 2-3 times daily","generally mornings",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,2,,"generally in the morning.  ",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,"generally in the morning",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,"generally in the mornings",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"generally in the mornings",3,,3,3,,3,,3,,0,,0,,0,,2
+7015,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,,"mostly in the morning.  have been traveling, so less than normal stools  ",3,,2,2,2,2,3,3,,0,,0,,0,,2
+7016,baseline_5_arm_1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,,"Usually during morning time - after I've eaten breakfast. Only one thing of note: very occasionally I need to have two bowel movements in a day. The second, when it occurs, appears to be a finale of the first bowel movement. ",3,,3,3,,3,,3,,0,,0,,0,,2
+7016,baseline_3_arm_1,1,1,1,1,1,1,1,1,2,1,1,3,1,1,2,,"Usually after breakfast - around 7:30am. ",3,,3,3,,3,,3,,0,,0,,0,,2
+7016,baseline_1_arm_1,1,1,1,1,1,1,2,1,2,1,1,2,1,1,2,,"Usually right after breakfast. Occasionally, a second go-round is necessary within ½-hour to complete the job. ",3,,3,3,,3,,3,,0,,0,,0,,2
+7016,week_1_arm_1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,2,,"Nothing unusual - ""normal"" as can be. ",3,,3,1,1,3,,3,,1,"Three days after I started the ""probiotics"" (not known whether placebo or actual) my urine was exceptionally discolored and dark brownish (no blood). One time - not repeated. Not sure if related to ""probiotics"" or a one-off kind of thing. ",0,,0,,2
+7016,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7016,week_5_arm_1,1,1,1,1,1,2,2,1,1,1,1,2,1,1,2,,"99% morning time",3,,3,3,,3,,3,,0,,0,,0,,2
+7016,week_7_arm_1,1,2,1,1,1,1,1,1,1,1,1,3,1,1,2,,"Couple of days of heartburn - related to, I believe, ",3,,3,3,,3,,3,,0,,0,,0,,2
+7017,baseline_5_arm_1,1,2,2,1,1,1,1,2,1,1,2,3,1,1,2,,afternoon,3,,3,3,,3,,3,,0,,0,,0,,2
+7017,baseline_3_arm_1,1,2,1,1,1,1,2,2,2,1,2,3,1,1,2,,afternoons,1,1,3,3,,1,1,3,,0,,0,,0,,2
+7017,baseline_1_arm_1,1,3,1,1,1,1,2,2,1,2,1,2,1,1,1,,morning,1,1,3,1,1,3,,1,1,0,,0,,0,,2
+7017,week_1_arm_1,1,2,1,1,1,1,2,1,1,1,1,4,1,1,2,,afternoon,3,,3,1,1,3,,3,,0,,0,,0,,2
+7017,week_3_arm_1,1,2,2,1,1,1,2,1,1,1,1,5,1,1,2,,morning,1,1,1,3,,3,,1,1,0,,0,,0,,2
+7017,week_5_arm_1,1,2,1,1,1,1,2,1,1,2,1,5,1,1,2,,morning,3,,3,1,1,3,,1,1,0,,0,,0,,2
+7017,week_7_arm_1,1,2,1,1,1,1,2,1,1,1,1,3,1,1,2,,morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7017,week_9_arm_1,1,2,1,1,1,1,2,1,1,1,1,3,1,1,2,,morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7018,baseline_5_arm_1,1,1,2,1,1,1,1,1,1,1,1,3,1,1,3,,"Early to late morning  ",3,,3,3,,3,,3,,0,,0,,0,,2
+7018,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,3,,Morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7018,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,3,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7018,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,3,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7018,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,3,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7018,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,3,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7018,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,Morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7018,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,Mornings,1,2,3,3,,3,,3,,0,,0,,0,,2
+7018,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,3,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7019,baseline_5_arm_1,2,1,1,2,1,2,3,1,3,2,1,4,2,1,1,,"Around 8am",3,,3,3,,2,1,3,,0,,0,,0,,2
+7019,baseline_3_arm_1,2,1,1,2,1,3,3,1,2,2,1,4,2,1,2,,"Early am after coffee breakfast ",1,2,3,1,2,3,,1,3,0,,0,,0,,2
+7019,baseline_1_arm_1,2,1,1,2,1,2,3,1,3,2,1,3,2,1,2,,8am,1,3,3,1,3,3,,1,3,0,,0,,0,,2
+7019,week_1_arm_1,2,1,1,2,2,2,3,1,3,2,1,4,2,2,2,,8am,1,2,3,2,2,3,,1,2,0,,0,,0,,2
+7019,week_3_arm_1,2,1,1,2,2,3,3,1,3,2,2,3,2,2,2,,"Early am around 8 am or infrequently at 9pm",1,2,2,2,1,2,2,1,2,0,,0,,0,,2
+7019,week_5_arm_1,2,1,1,2,2,2,3,1,2,2,1,4,3,1,2,,8am,1,2,2,1,3,3,,3,,0,,1,"Flatulence. Abd cramping w gas distension",0,,2
+7019,week_7_arm_1,1,1,1,2,1,2,3,1,2,2,1,3,2,2,2,,8am,3,,3,3,,3,,3,,0,,0,,0,,2
+7019,week_9_arm_1,2,1,1,2,1,2,2,1,3,1,2,2,2,2,2,,8am,3,,3,2,2,2,1,3,,0,,0,,0,,2
+7019,week_13_arm_1,2,1,1,1,2,2,3,1,3,2,1,4,2,1,1,,8am,3,,2,1,3,2,2,1,3,0,,0,,0,,2
+7020,baseline_5_arm_1,1,1,1,1,1,2,1,1,1,1,1,4,1,1,2,,"Early evening, after dinner ",3,,3,1,2,3,,3,,0,,0,,0,,2
+7020,baseline_3_arm_1,2,1,1,1,1,2,2,1,3,1,1,4,2,2,1,,"Usually late morning mid afternoon on 5 days with two late evenings",1,3,3,3,,1,3,3,,0,,1,"Flatulence & discomfort",1,"Didn't go out in public during episodes of flatulence.  I felt relief after I passed gas.",2
+7020,baseline_1_arm_1,2,1,1,1,1,2,2,1,3,1,2,3,1,2,1,,"After lunch mid to late afternoon up to 6:00 pm.  1:00-6:00pm",1,3,2,2,3,2,3,1,3,0,,1,Flatulence,1,"Being out in public due to excessive flatulence",2
+7020,week_1_arm_1,2,1,1,1,1,2,2,2,3,1,1,4,1,1,1,,"Mid afternoon ",3,,2,3,,1,3,3,,0,,1,"Flatluence ",1,"When I'm experiencing it I don't go out in public",2
+7020,week_3_arm_1,1,1,1,1,1,1,1,1,2,1,1,5,1,1,2,,"Early afternoons 1-3:00 pm",3,,1,1,4,1,4,3,,0,,0,,0,,2
+7020,week_5_arm_1,1,1,1,1,1,2,1,1,2,1,1,2,2,2,2,,"Mid afternoon 1-3:00 pm",3,,1,2,3,1,3,3,,0,,0,,0,,2
+7020,week_7_arm_1,1,1,1,1,1,2,1,1,2,1,2,2,1,2,1,,"I think I forgot 2 times to take the pill after my largest meal of the day which is dinner.  This caused me to skip a bowel movement one day and then it was difficult because my stool was on the firm side.   It was late evening, after 9:00 pm",1,3,2,2,5,2,3,3,,0,,0,,0,,2
+7020,week_13_arm_1,1,1,1,1,1,2,2,1,2,1,1,4,1,1,2,,"Early afternoon 12 noon - 1:30 pm",2,5,1,1,5,1,5,2,5,0,,0,,0,,2
+7021,baseline_5_arm_1,1,1,1,1,1,2,1,1,1,1,1,3,1,1,2,,"Varies all over the day. Usually mid morning or afternoon.",3,,3,3,,3,,3,,1,Insomnia,1,Insomnia,0,,2
+7021,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,6,1,1,2,,"Varies. ",3,,3,1,3,3,,3,,0,,0,,0,,2
+7021,baseline_1_arm_1,1,1,1,1,1,2,2,1,1,2,1,5,1,1,2,,"Varies during the day.",1,2,3,1,3,3,,1,2,0,,0,,0,,2
+7022,baseline_5_arm_1,1,1,1,1,1,1,2,1,1,1,1,3,2,2,5,"I have no idea. Don't keep track. But I'll keep track from now on. ","Usually after breakfast.",3,,3,3,,3,,3,,0,,0,,0,,2
+7022,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,2,,"Most often around mid day. ",3,,3,3,,3,,3,,0,,0,,0,,2
+7022,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,2,,"Around noon",3,,3,2,1,3,,1,1,0,,0,,0,,2
+7022,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,3,,"Morning and Afternoon",3,,1,3,,3,,3,,0,,0,,0,,2
+7022,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,2,,"Around 10am",3,,3,3,,3,,3,,0,,0,,0,,2
+7022,week_5_arm_1,1,1,1,1,2,1,1,1,1,1,1,4,2,1,2,,"Around 11am",3,,3,3,,3,,3,,0,,0,,0,,2
+7022,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,2,,"Before lunch",3,,3,3,,3,,3,,0,,0,,0,,2
+7022,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,,"Before noon",3,,3,3,,3,,3,,0,,0,,0,,2
+7022,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,,"Very varied. Sometimes small but several times per day. Mostly not once per day.  ",3,,3,3,,2,3,3,,0,,0,,0,,2
+7023,baseline_5_arm_1,1,1,1,1,1,1,2,1,1,1,1,4,1,1,2,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7023,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,,3,,3,3,,1,2,3,,0,,0,,0,,2
+7023,baseline_1_arm_1,1,1,1,1,1,1,2,1,1,1,1,4,1,1,2,,"between 6.30 am and 7.00 am",3,,3,3,,3,,2,3,0,,0,,0,,2
+7023,week_1_arm_1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,2,,"between 6.00 am and 10.00 am",3,,3,2,1,3,,3,,0,,0,,0,,2
+7023,week_3_arm_1,1,1,1,1,1,2,2,1,1,1,1,2,1,1,3,,"between 6.00 am and 10.00 am",2,5,1,3,,3,,3,,0,,0,,0,,2
+7023,week_5_arm_1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,3,,"between 6.00 am and 11.00 am",2,1,3,2,2,3,,3,,0,,0,,0,,2
+7023,week_7_arm_1,1,1,1,1,1,2,1,1,1,2,1,2,1,1,2,,"between 6.00 a, and 10 am",2,2,3,3,,3,,3,,0,,0,,0,,2
+7023,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"Between 6.00 am and 10.00 am",3,,3,3,,3,,3,,0,,0,,0,,2
+7023,week_13_arm_1,1,1,1,1,1,2,1,1,1,1,1,4,1,1,3,,"between 6.00 am and 10.00 am",3,,3,3,,3,,3,,0,,0,,0,,2
+7024,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,2,2,,"10am to 5pm",3,,3,3,,3,,3,,0,,0,,0,,2
+7024,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,3,2,1,2,2,,"10am to 2pm",3,,1,3,,3,,3,,0,,0,,0,,2
+7024,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,,"10am to 2pm",3,,3,3,,3,,3,,0,,0,,0,,2
+7024,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,,"10am to 2pm",3,,3,3,,3,,3,,1,"Stool color changed from dark brown to light brown for a few days  First two days after starting meds I had a little poop leakage, when peeing or farting",0,,0,,2
+7024,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,2,2,1,2,2,,"10am to 2pm",3,,3,2,1,2,1,3,,0,,0,,0,,2
+7024,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7024,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,,"10am to 2pm",3,,3,3,,3,,3,,0,,0,,0,,2
+7024,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,,"10am to 2pm",3,,3,3,,3,,3,,0,,0,,0,,2
+7024,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,,"10am to 2pm",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,baseline_5_arm_1,1,1,1,1,1,2,1,1,1,2,1,4,2,1,3,,"Morning and afternoon or night",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,6,2,1,3,,"morning and night",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,2,1,6,2,1,3,,"2 to 3",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,week_1_arm_1,1,1,1,1,1,1,1,1,1,2,1,6,1,1,3,,"Morning and evening",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,3,,"morning and evening",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,3,,"morning and evening",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,3,,"morning and evening",3,,3,2,2,3,,3,,0,,0,,0,,2
+7025,week_9_arm_1,1,1,1,1,1,1,1,1,1,2,1,6,1,1,3,,"morning and evening",3,,3,3,,3,,3,,0,,0,,0,,2
+7025,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,3,,"morning and evening",3,,3,3,,3,,3,,0,,0,,0,,2
+7026,baseline_5_arm_1,1,1,1,1,1,1,1,1,2,1,1,4,1,1,2,,"I can't remember the time of day for the past week, but my overall sense is that I usually have a bowel movement about the middle of the morning, or later in the evening. Other times are possible but the usual is mid-morning and mid to late evening.",3,,3,2,2,3,,3,,0,,0,,0,,2
+7026,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"mostly in morning, or else evening.",3,,3,3,,3,,3,,0,,0,,0,,2
+7026,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,2,,"Various times, but usually morning or evening.",3,,3,2,3,1,3,3,,0,,0,,0,,2
+7026,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,"varies, but usually morning or evning.",3,,1,1,3,3,,3,,0,,0,,0,,2
+7026,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,2,2,1,2,5,"Sometimes twice daily, sometimes once a day for the past week.","Different times of day: morning, afternoon, evening.",3,,1,2,3,1,3,3,,0,,0,,0,,2
+7026,week_5_arm_1,1,1,1,1,1,1,1,1,1,2,2,4,1,1,2,,"different times, morning, afternoon, evening.",3,,1,1,3,1,3,3,,0,,0,,0,,2
+7026,week_7_arm_1,1,1,1,1,1,1,1,1,1,2,1,3,1,1,2,,"Usually morning or evening.",3,,3,1,3,3,,3,,0,,0,,0,,2
+7026,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,2,,"Mornings or late evening ",3,,3,2,3,3,,3,,0,,0,,0,,2
+7026,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,2,,"Mornings and evenings mostly; sometimes in the afternoon.",3,,2,2,2,1,2,3,,0,,0,,0,,2
+7027,baseline_5_arm_1,1,1,2,1,1,1,1,1,2,1,1,3,1,1,2,,"Normal poops",3,,3,3,,3,,3,,0,,0,,0,,2
+7027,baseline_3_arm_1,1,3,3,1,1,2,1,2,1,2,1,6,1,1,2,,"I got my period so everything was mushy and somewhat angry. ",3,,1,1,4,2,3,1,3,0,,0,,0,,2
+7027,week_5_arm_1,1,1,1,1,1,2,3,2,2,2,1,3,1,1,2,,"Poops came easily. I'm super gassy lately though. ",1,4,3,1,1,3,,1,4,0,,0,,0,,2
+7027,week_7_arm_1,1,1,1,1,1,2,2,1,1,1,1,4,1,1,2,,,2,3,3,3,,3,,3,,0,,0,,0,,2
+7027,week_9_arm_1,1,1,1,1,1,2,1,1,1,2,1,6,1,1,2,,"Always first thing in the morning or after a large meal ",1,3,3,1,3,3,,2,1,0,,0,,0,,2
+7027,week_13_arm_1,1,1,2,1,1,1,1,1,1,1,2,2,1,1,1,,"Usually around 11am or 11pm",2,5,2,2,4,2,4,2,3,0,,0,,0,,2
+7028,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,2,2,3,2,1,2,,"Half were early-mid morning, half were mid afternoon.",3,,3,1,2,1,2,3,,0,,0,,0,,2
+7028,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,3,2,1,3,,"Morning,  late afternoon/early evening.",3,,1,3,,1,2,3,,0,,0,,0,,2
+7028,baseline_1_arm_1,1,1,1,1,1,1,2,1,1,1,1,4,2,1,3,,"Mid-morning and late afternoon/early evening.",3,,1,3,,3,,3,,0,,0,,0,,2
+7028,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,3,,"mid morning, late afternoon",3,,3,3,,3,,3,,0,,0,,0,,2
+7028,week_3_arm_1,1,2,2,1,1,1,2,1,1,1,1,3,2,1,3,,"mid morning, late afternoon",3,,3,1,3,1,3,1,3,0,,0,,0,,2
+7028,week_5_arm_1,1,1,1,1,1,1,1,1,1,2,1,3,2,1,3,,"Mid morning / mid to late afternoon",3,,3,1,3,1,3,3,,0,,0,,0,,2
+7028,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,2,2,,mid-morning,3,,2,3,,3,,1,3,1,"Constipation .... something I seldom have, but the past week it was an issue.  I missed a hair appointment because it took over an hour to release stool that was stuck.  A couple other times it took about 15 mins.  Sunday 7-22 improved.",1,Constipation.,0,,2
+7028,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,2,3,,"Late morning, early evening.",3,,3,3,,3,,3,,0,,0,,0,,2
+7028,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,3,,"Mid-morning, late afternoon/early evening",3,,3,3,,3,,3,,0,,0,,0,,2
+7029,baseline_5_arm_1,1,1,1,1,1,2,1,2,1,1,1,5,2,1,3,,"Morning after breakfast and after noon after lunch",3,,3,3,,3,,3,,0,,0,,0,,2
+7029,baseline_3_arm_1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0
+7030,baseline_5_arm_1,1,2,2,1,1,2,2,2,1,1,1,3,1,2,3,,"varies, no set time of day. if twice day normally early morning and afternoon",3,,3,3,,3,,3,,0,,0,,0,,2
+7030,baseline_3_arm_1,1,2,2,1,1,2,1,2,2,1,1,3,1,2,3,," Various one day maybe Wednesday had 4 bowel movement ",3,,3,3,,3,,3,,0,,0,,0,,2
+7030,baseline_1_arm_1,1,2,2,1,1,1,2,2,2,1,1,3,1,1,2,,Varies,1,3,3,3,,3,,3,,0,,0,,0,,2
+7030,week_1_arm_1,1,2,2,1,1,1,1,2,1,1,2,3,1,2,2,,"varies but didn't have movement on Monday",3,,2,3,,3,,3,,0,,0,,0,,2
+7030,week_3_arm_1,1,1,1,1,1,1,2,1,1,1,2,2,1,2,2,,"Was traveling back to back weeks and was constipated 2nd week. This is normal due to all processed food I am not used to eating  Bowel Times vary. ",3,,2,2,4,2,4,1,3,1,"See above note regarding constipation  Arrived home Wednesday night by Sunday all better and had multiple bowel movements ",0,,0,,2
+7030,week_5_arm_1,1,1,2,1,1,2,1,2,2,2,1,5,2,1,3,,"Various times Saturday I had diarrhea until 3 pm then ok rest of weekend",1,2,1,1,2,3,,3,,0,,0,,0,,2
+7030,week_7_arm_1,1,2,2,1,1,2,2,2,2,1,1,4,1,2,3,," Varies",3,,3,3,,3,,3,,0,,0,,0,,2
+7030,week_9_arm_1,1,2,1,1,1,1,1,2,1,1,1,4,1,2,3,,"varies, sometimes first thing in morn, others late morn, sometimes not until mid-afternoon",2,2,1,3,,1,2,3,,0,,0,,0,,2
+7030,week_13_arm_1,1,2,1,1,1,1,1,2,2,1,1,3,1,2,3,,varies,3,,3,3,,3,,3,,0,,0,,0,,2
+7031,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7031,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,Varies,3,,3,3,,3,,3,,0,,0,,0,,2
+7031,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"Mostly mornings",3,,3,3,,3,,3,,0,,0,,0,,2
+7031,week_1_arm_1,1,1,1,1,1,1,1,1,1,2,1,5,2,1,2,,"mornings mostly",3,,3,1,3,1,3,3,,0,,0,,0,,2
+7031,week_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,5,2,1,3,,"morning and evening",1,2,1,1,2,1,2,3,,0,,0,,0,,2
+7031,week_5_arm_1,1,1,1,1,1,1,1,1,1,2,1,4,2,1,2,,"mostly mornings",3,,3,3,,3,,3,,0,,0,,0,,2
+7031,week_7_arm_1,1,1,1,1,1,1,1,1,1,2,1,4,2,1,2,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7031,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,2,1,2,,mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7031,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7032,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,2,,Mornings,3,,3,1,3,3,,3,,0,,0,,0,,2
+7032,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,3,,"Morning and occasionally late afternoon; no change from last time.",3,,3,3,,3,,3,,0,,0,,0,,2
+7032,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,,"late morning",3,,3,2,2,3,,3,,0,,0,,0,,2
+7032,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,2,4,1,1,2,,"Usually morning;  ocaisionally twice a day",3,,3,3,,1,1,3,,0,,0,,0,,2
+7032,week_3_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,2,,"Late morning; sometimes twice a day",3,,3,3,,3,,3,,0,,0,,0,,2
+7033,baseline_5_arm_1,1,1,1,1,1,2,2,1,2,2,1,5,2,2,2,,"mornings after coffee or breakfast",3,,3,1,1,1,2,3,,0,,0,,0,,2
+7033,baseline_3_arm_1,1,1,1,1,1,1,2,1,2,2,1,6,2,1,2,,"usually mornings",3,,3,1,2,3,,3,,0,,0,,0,,2
+7033,baseline_1_arm_1,1,1,1,1,1,1,1,1,2,2,1,5,2,1,2,,"usually mornings after coffee",3,,1,3,,1,3,3,,0,,0,,0,,2
+7033,week_1_arm_1,1,1,1,1,1,2,2,1,2,1,1,4,2,1,2,,"usually mornings",1,3,1,2,2,1,2,3,,0,,0,,0,,2
+7033,week_3_arm_1,1,1,1,1,1,2,1,2,2,2,1,6,2,1,2,,,3,,1,1,2,1,2,3,,0,,0,,0,,2
+7033,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"usually mornings after coffee",3,,3,2,2,3,,3,,0,,0,,0,,2
+7033,week_7_arm_1,1,1,1,1,1,1,1,1,1,2,1,6,1,1,2,,mornings,3,,3,1,2,3,,3,,0,,0,,0,,2
+7033,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,2,,"mornings primarily",3,,3,3,,3,,3,,0,,0,,0,,2
+7033,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,2,2,,"mostly mornings, sometime other time of days which is more unusual for me",3,,1,2,3,3,,3,,0,,0,,0,,2
+7034,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,2,1,4,1,1,3,,"Mostly in the mornings with occasional afternoon BM. ",3,,3,3,,3,,3,,0,,0,,0,,2
+7034,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,3,,"Generally in the morning with occasional afternoon bowel movements.",3,,3,3,,3,,3,,0,,0,,0,,2
+7035,baseline_5_arm_1,1,1,1,1,1,1,2,1,1,1,1,3,2,1,2,,Varied,3,,3,3,,3,,3,,0,,0,,0,,2
+7035,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,5,2,1,2,,"Various ",3,,3,3,,3,,3,,0,,0,,0,,2
+7035,baseline_1_arm_1,1,1,1,1,1,1,2,1,2,2,1,6,2,1,2,,Variable,3,,3,1,3,3,,3,,0,,0,,0,,2
+7035,week_1_arm_1,1,2,1,1,1,1,2,1,2,1,1,4,2,1,2,,Varied,1,3,3,2,3,2,3,3,,0,,0,,0,,2
+7035,week_3_arm_1,1,2,1,1,1,1,1,1,1,1,1,4,2,1,2,,Variable,3,,3,2,3,1,1,3,,0,,0,,0,,2
+7035,week_5_arm_1,1,1,1,1,1,1,2,1,1,1,1,3,2,1,5,"Sometimes once, sometimes twice",Variable,3,,1,3,,1,3,3,,0,,0,,0,,2
+7035,week_7_arm_1,1,1,1,1,1,1,2,1,2,1,1,6,2,1,2,,"Varied. A couple of days with 2 bowel movements  Also bowel movements alternate between hard and soft",1,3,1,3,,1,3,3,,0,,0,,0,,2
+7035,week_9_arm_1,2,2,1,1,1,2,2,1,3,1,1,3,3,1,5,"Varied from none to 3",Varied,1,4,2,3,,3,,3,,1,"Much more flatulence and heartburn and abdominal pain",1,Flatulence,0,,2
+7035,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,2,1,2,,Varies,1,3,3,1,3,3,,3,,0,,0,,0,,2
+7036,baseline_5_arm_1,1,1,1,1,1,2,2,2,2,1,1,3,1,2,5,"Varies....average 3-5, but varies with food, freedom of bathroom use....easier on days off, especially when at home.","During work days, mornings and evenings, weekends more variable, as needed ",3,,3,3,,3,,3,,0,,0,,0,,2
+7036,baseline_3_arm_1,2,1,1,1,1,2,2,2,2,1,1,3,1,2,4,,"1-2 in am, another 1-2 in the evening.  Only constipation was day I had to fast and didn't have morning tea.  Would likely have evacuated twice under normal circumstances, but awoke closer to time of departure--intentionally--to avoid getting hungry. That left less time and options for hydration, and less time to evacuate.  That back up resulted in hard to evacuate, overly firm, back up, that was finally cleared the following morning.  As for photos above, there was not just one version, but a mix during the week.  Flatulence issues seem tied to food--usually more issues when eating out.",3,,3,3,,3,,3,,1,"I feel like this survey doesn't capture my experience.  Day to day experience is largely tied to my diet, availability of privacy for using the bathroom, exercise and more....all of which change day-to-day,  yet this survey wants me to assess a week.",0,,0,,2
+7036,baseline_1_arm_1,1,1,2,1,1,2,1,2,2,2,1,6,2,2,4,,"morning and evening as I rarely use work toilet for bowel movements due to small office. More sporadic on weekends.  Also, urgent defacation typically tied to fondness for jalapeno's.  Also, belching tied to processed snacks at 'Costco Buffet' and/or eating out.  More frequent and sizable bowel movements tied to food choices such as large portions of vegetables.",3,,3,1,1,3,,3,,0,,0,,0,,2
+7036,week_1_arm_1,1,1,1,1,1,2,2,2,1,2,1,5,1,1,4,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7036,week_3_arm_1,1,2,1,1,1,1,2,2,2,2,1,6,2,2,4,,"varying depending on ability to go as needed or wait for availability of bathrooms. Also, excessive ingenstion of (wonderful) cherries, have impacted stools.  Occasional sharp indigestion pain in chest, although brief, not normal for me.",1,3,3,1,3,2,1,3,,0,,0,,0,,2
+7036,week_5_arm_1,2,2,1,1,1,2,2,2,2,2,1,5,1,2,5,"2-3 in morning, 1-2 in evening.","usually a few in the morning and a few at day's end....2-3 (sometimes 4) in am, 1-2 in evening.",3,,3,3,,3,,1,3,1,"bloating was likely a 5 after a Chinese meal including rice, but faded fast.  Otherwise, no big issues.  Question two back relates to this report.",0,,0,,2
+7036,week_7_arm_1,1,1,1,1,1,2,2,2,2,2,2,5,2,2,5,"Typically two in the am, 1-2 in the pm","Typically two in the am (by 11 or earlier), 1-2 in the pm",3,,2,3,,3,,3,,0,,0,,0,,2
+7036,week_9_arm_1,3,2,1,1,1,2,2,2,2,3,3,3,1,2,5,"I've experienced both constipation and diarrhea,  possibly due to times without normal access to water or vegetables during times flying and in hotels, changing locations, and flights.  Questions below do not work due to having experienced both harder stools and diarrhea.  All seemed circumstantial.   I'll stick with no change as the other answers are both yes, day to day.  Bloating due to long flight and related lack of privacy before, during and after flight.","Various, and depending on circumstances.  Typically 2 in am, 1-3 by day's end.",3,,1,3,,3,,1,3,1,"See above.",1,"Diarrhea kept me home and led to unplanned nap.  Only part of one day.",1,"See above.",2
+7036,week_13_arm_1,1,1,1,1,1,2,2,2,2,1,2,4,2,1,5,3-4,"2 in am, 1-2 at day's end",3,,3,2,2,3,,3,,1,"last weekend involved a few flights, during which bathroom options were more limited.  Also, during flight and period in hotel, fewer vegetables were ingested, possibly contributing to firmer stools.",0,,0,,2
+7037,baseline_5_arm_1,1,1,1,1,1,3,3,2,2,2,4,5,1,2,1,,Mornings,3,,3,3,,3,,3,,0,,0,,0,,2
+7037,baseline_3_arm_1,1,1,1,1,1,2,2,1,1,2,2,6,1,2,3,,"Before 9am, 1pm, 5pm",3,,1,1,2,1,2,3,,0,,,,0,,0
+7038,baseline_5_arm_1,2,2,2,1,1,2,2,2,1,1,1,4,2,1,4,,"Usually 20 to 30 minutes after eating.",3,,3,3,,3,,3,,0,,0,,0,,2
+7038,baseline_3_arm_1,1,1,1,1,1,2,1,2,2,1,1,4,1,,4,,"Approximately 20 minutes after eating.",3,,3,3,,3,,3,,0,,0,,0,,0
+7038,baseline_1_arm_1,1,1,1,1,1,2,1,1,1,1,1,3,1,1,4,,"Normal, 20 minutes after eating I have a bowel movement.",3,,3,3,,3,,3,,0,,0,,0,,2
+7038,week_1_arm_1,1,1,1,1,1,2,1,2,1,1,1,3,1,1,4,,"20 minutes after eating I have a normal bowel movement.",3,,3,2,2,3,,3,,0,,0,,0,,2
+7039,baseline_5_arm_1,1,2,2,1,1,1,1,1,1,1,1,3,1,2,4,,"usually sometime mid day, maybe three hours after I wake up.",3,,1,3,,1,2,3,,0,,0,,0,,2
+7039,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,3,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7039,baseline_1_arm_1,1,2,2,1,1,1,2,1,1,1,1,4,1,2,1,,,3,,3,3,,2,1,3,,0,,0,,0,,2
+7039,week_1_arm_1,1,2,2,1,1,1,1,1,1,1,1,4,1,1,1,,,1,1,3,1,2,3,,1,1,0,,0,,0,,2
+7039,week_3_arm_1,1,3,2,1,1,2,2,1,2,1,1,4,1,1,2,,"sometime in the middle of the day",1,1,3,3,,3,,3,,0,,0,,0,,2
+7039,week_5_arm_1,1,3,2,1,1,1,2,1,1,1,2,3,1,2,3,,"When I have more smoothies which I have been doing frequently lately, I think it makes me go more",3,,3,3,,3,,3,,0,,0,,0,,2
+7039,week_7_arm_1,1,2,2,1,1,1,2,1,1,1,2,4,1,1,5,"sometimes more then once, sometimes once",,3,,3,2,1,3,,3,,0,,0,,0,,2
+7039,week_9_arm_1,1,2,1,1,1,1,1,1,1,1,2,3,2,2,4,,"some days I went more then once. Sometimes three times a day. ",3,,1,2,1,3,,3,,1,"subtle vertigo",0,,0,,2
+7039,week_13_arm_1,1,4,4,2,1,2,1,1,2,1,2,3,2,2,3,,"once a day but sometimes more then once a day",1,2,3,2,2,1,1,3,,0,,0,,0,,2
+7040,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,2,1,5,1,1,2,,"Morning  Gentry between 7 and 9",3,,3,3,,3,,3,,0,,0,,0,,2
+7040,baseline_3_arm_1,1,1,1,2,1,1,1,2,1,1,1,4,1,1,1,,"Usually in the morning before 10:00 am",3,,3,1,2,3,,3,,0,,0,,0,,2
+7040,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,,"normally in the morning",3,,2,1,1,3,,3,,0,,0,,0,,2
+7040,week_1_arm_1,1,1,1,1,1,1,1,1,1,2,1,4,1,1,1,,,3,,3,1,2,3,,3,,0,,0,,0,,2
+7040,week_3_arm_1,1,1,1,1,1,1,2,2,2,3,2,5,2,1,2,,morning,1,4,1,1,4,1,3,1,3,0,,0,,0,,2
+7040,week_5_arm_1,1,1,1,1,1,1,2,2,2,2,1,4,1,1,1,,"mostly morning but occasionally it is in the afternoon",2,3,2,1,3,3,,3,,0,,0,,0,,2
+7040,week_7_arm_1,1,1,1,2,1,1,2,1,2,3,1,6,1,1,1,,"normally in the morning",1,3,2,1,3,2,2,1,2,0,,0,,0,,2
+7040,week_9_arm_1,1,1,1,1,1,1,1,1,2,2,2,5,2,1,1,,"morning time between 7:00 to 11:00 am",1,2,2,1,2,3,,1,2,0,,0,,0,,2
+7040,week_13_arm_1,1,1,1,1,1,1,2,1,2,2,1,5,1,1,1,,"morning  between 7 am and 10 am",3,,2,1,1,3,,3,,0,,0,,0,,2
+7041,baseline_5_arm_1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,2,,"between 7am-8am",3,,3,2,3,2,2,3,,0,,0,,0,,2
+7041,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,2,,"morning mostly; 1x in the evening",3,,1,2,1,3,,3,,0,,0,,0,,2
+7041,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,2,4,1,1,2,,"a.m. ",3,,3,1,3,1,2,3,,0,,0,,0,,2
+7041,week_1_arm_1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,2,,"usually a.m.,  but  one day it was in the evening, and another day, I had a 2nd bowel movement in the afternoon",1,2,3,2,2,3,,3,,0,,0,,0,,2
+7041,week_3_arm_1,1,1,1,1,2,1,1,1,1,1,3,1,1,2,5,"2-3 times day for about 3 days when I was experiencing incomplete evacuation.  Otherwise, once a day.  In the last 3 days, my stool has not been hard -- it's been normal sausage with cracks consistency. The very hard stool has been for about 2-3 weeks, and last week was the first time I had incomplete evacuation. Re: the nausea noted above, I was in Denver and think I was affected by the high altitude.","In the morning.  On the days, when I had incomplete evacuation, the subsequent bowel movements were throughout the day, usually later in the morning and then again in the afternoon. ",3,,1,1,3,1,3,3,,0,,1,"Incomplete evacuation caused me to have to keep going to the bathroom during the day. ",1,"Because of the feeling of incomplete evacuation, I felt uncomfortable during the day and didn't want to be far from a bathroom.  I also didn't feel comfortable going to exercise class, though I did go.",2
+7041,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,,3,,3,1,3,1,2,3,,0,,0,,0,,2
+7041,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,2,,"mornings except on the days ~2 days when I inexperienced incomplete evacuation. On those days, I had additional (1-2) bowel movements later in the day.",3,,3,2,1,3,,3,,0,,1,"incomplete evacuation caused me to need to be near a bathroom",0,,2
+7041,week_9_arm_1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,,morning,3,,3,1,2,3,,3,,0,,0,,0,,2
+7041,week_13_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,"usually a.m.",3,,3,3,,3,,3,,0,,0,,0,,2
+7042,baseline_5_arm_1,1,1,1,1,1,1,1,1,2,2,1,4,1,2,1,,"Mostly first thing in the morning. Once late afternoon,",3,,3,1,2,3,,3,,0,,0,,0,,2
+7042,baseline_3_arm_1,1,1,1,1,1,1,1,1,2,2,1,4,1,1,2,,"first thing in the morning",1,3,3,1,1,3,,3,,0,,0,,0,,2
+7042,baseline_1_arm_1,1,1,1,1,1,1,1,1,2,2,1,5,1,1,2,,"first thing in the morning, before breakfast",3,,3,3,,3,,3,,0,,0,,0,,2
+7042,week_1_arm_1,1,1,1,1,1,1,1,1,2,2,1,5,1,1,2,,"morning, before breakfast",3,,3,1,1,3,,3,,0,,0,,0,,2
+7042,week_3_arm_1,1,1,1,1,1,1,1,1,2,1,1,3,1,1,1,,"First thing in the morning; once after dinner",3,,2,2,2,3,,3,,1,"Trouble collecting stool sample - there I sat, broken hearted....",0,,0,,2
+7042,week_5_arm_1,2,1,1,1,1,1,1,1,3,2,2,3,2,3,3,,"Due to incomplete evacuation, bowel movements are less regular. Sometimes first thing in the morning, sometimes in the afternoon or evening. Often more than once per day.",1,2,1,2,3,3,,1,1,1,"My poop smells awful!!! I've gagged at the smell!    Also, my stool is inconsistent - I've had constipation and difficulty evacuating, but I've also had huge piles of liquidy stool. I'm not sure what to pick from the Bristol Chart.",1,"Difficulty evacuating has made me uncomfortable and made me feel like I needed to stay near a bathroom in case I had to go again.",0,,2
+7042,week_7_arm_1,2,1,1,1,1,2,1,2,2,2,1,5,1,2,2,,"before breakfast, after lunch, sometimes after dinner",3,,3,1,1,3,,3,,0,,0,,0,,2
+7042,week_9_arm_1,2,1,1,1,1,2,2,1,2,2,1,5,1,2,2,,"Less predictable - usually before breakfast, sometimes afternoon or evening.",3,,3,3,,3,,1,2,0,,0,,0,,2
+7042,week_13_arm_1,1,1,1,1,1,1,2,1,2,1,1,3,1,2,3,,"Usually before breakfast, sometimes in the afternoon or evening. ",3,,3,2,3,3,,3,,0,,0,,0,,2
+7045,baseline_5_arm_1,1,1,1,1,1,2,1,1,2,1,1,4,1,1,2,,Morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7045,baseline_3_arm_1,1,1,1,1,1,2,1,1,1,1,1,4,1,1,2,,"AM after first meal",3,,3,3,,3,,3,,0,,0,,0,,2
+7045,baseline_1_arm_1,1,1,1,1,1,2,1,1,1,1,1,4,1,1,3,,"AM, 9-10 and 1-2PM",3,,1,3,,3,,3,,0,,0,,0,,2
+7045,week_1_arm_1,1,1,1,1,1,1,1,1,2,1,1,4,2,1,2,,"Typically early morning as soon as I ate it drank something ",1,2,3,1,2,3,,3,,1,"Lower appetite ",0,,0,,2
+7045,week_3_arm_1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,,"Mid morning",1,1,3,2,2,3,,3,,0,,0,,0,,2
+7045,week_5_arm_1,1,1,1,1,1,1,1,1,2,1,1,4,1,1,2,,"Once mid day",3,,3,3,,3,,3,,0,,0,,0,,2
+7045,week_7_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,"morning after eating",3,,3,3,,3,,3,,0,,0,,0,,2
+7045,week_9_arm_1,1,1,1,1,1,2,1,1,1,1,1,4,1,1,2,,Morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7045,week_13_arm_1,1,1,1,1,1,1,1,1,2,1,1,4,2,1,2,,Morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7046,baseline_5_arm_1,1,1,1,1,1,1,1,1,2,2,1,6,2,2,3,,"10:00AM   7:00PM",3,,3,1,3,2,3,3,,0,,0,,0,,2
+7046,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,2,4,6,2,2,3,,"8:00 - 10:00 AM  7:00 - 10:00 PM",3,,3,1,3,3,,3,,0,,0,,0,,2
+7046,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,2,2,6,2,1,3,,"morning range 8:00 - 10:-00    evening range 6:00 - 8:00",3,,3,1,3,2,2,3,,0,,0,,0,,2
+7046,week_1_arm_1,1,1,1,1,1,1,1,1,1,2,1,3,2,1,3,,"8:00-10:00 AM    5:00 - 9:00 PM  ",1,2,3,3,,3,,3,,0,,0,,0,,2
+7046,week_3_arm_1,1,1,1,1,1,1,1,1,1,2,1,4,2,1,3,,"7:30 am - 9:30 Am    4:30 PM - 7:00 PM",3,,3,3,,3,,3,,0,,0,,0,,2
+7046,week_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,3,,"7:30-9:30 AM    5:00---9:00 PM",3,,3,2,2,3,,3,,0,,0,,0,,2
+7046,week_13_arm_1,1,2,1,1,1,1,1,1,1,2,1,5,1,1,4,,"8:00 Am    11:00 AM    6:00 PM",3,,3,1,1,2,1,3,,0,,0,,0,,2
+7047,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,2,,"Usually in the morning between breakfast and lunch. ",3,,3,3,,3,,3,,0,,0,,0,,2
+7047,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,1,,morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7047,baseline_1_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,Morning,3,,3,3,,3,,3,,0,,0,,0,,2
+7048,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7048,baseline_3_arm_1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,2,,"7 AM daily",3,,3,3,,1,1,2,1,0,,0,,0,,2
+7049,baseline_5_arm_1,1,1,1,1,1,1,1,1,1,1,1,3,2,1,2,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7049,baseline_3_arm_1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0
+7050,baseline_5_arm_1,2,1,1,1,2,2,4,1,3,3,4,5,1,2,5,"Usually once but not always.  In the last week I have  had less than once daily, other times two or three times a day.","If I am lucky in the morning after coffee when going more than once about an hour or so after eating.",3,,3,3,,1,3,2,3,1,"Back aches in the area of my kidneys.",0,,0,,2
+7050,baseline_3_arm_1,1,1,1,1,1,1,2,1,2,2,1,4,1,1,2,,"In the morning, after breakfast.",3,,3,3,,1,3,2,4,0,,0,,0,,2
+7050,baseline_1_arm_1,2,1,1,1,2,2,2,1,2,2,1,4,1,1,3,,"Early morning after coffee / breakfast ",1,3,1,1,3,1,2,1,3,0,,0,,0,,2
+7050,week_1_arm_1,1,1,1,1,2,2,2,2,1,2,1,6,1,1,2,,"In the morning usually after coffee.  A couple of times this week right after getting up. ",1,1,3,1,2,2,2,2,2,1,"I am hungry in the morning. ",0,,0,,2
+7050,week_3_arm_1,1,1,1,1,1,1,1,2,2,1,1,5,1,1,3,,"First thing in and mid morning ",1,3,1,2,2,1,2,3,,0,,0,,0,,2
+7050,week_5_arm_1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,3,,"First thing in the morning and after a mean.",2,1,1,2,2,3,,3,,0,,0,,0,,2
+7050,week_7_arm_1,1,2,1,1,1,1,1,1,2,2,1,5,1,1,3,,"First thing in the morning and after eating. ",1,2,1,3,,1,3,3,,1,"I have been having a bit of heartburn which is very unusual for me. ",0,,0,,2
+7050,week_9_arm_1,1,2,1,1,2,1,1,1,2,1,1,5,1,1,4,,"First thing in the morning and after a meal. ",3,,1,3,,3,,3,,1,"Heartburn at least I think that's what it is. It's not a burn just discomfort. ",0,,0,,2
+7050,week_13_arm_1,1,1,1,1,1,1,1,1,2,2,1,5,1,1,3,,"First thing in the morning and after a mean",3,,3,3,,3,,3,,0,,0,,0,,2
+7051,baseline_5_arm_1,2,2,1,1,2,2,2,2,2,1,1,4,2,2,1,,"3 times per week",2,2,1,3,,3,,2,3,0,,0,,0,,2
+7051,baseline_3_arm_1,1,1,1,1,1,1,2,2,2,2,1,6,1,3,1,,"mid afternoon",1,2,2,1,2,3,,3,,0,,0,,0,,2
+7051,baseline_1_arm_1,1,1,1,1,1,2,3,2,2,2,1,6,1,3,1,,evening,3,,2,1,3,2,3,1,3,0,,0,,0,,2
+7051,week_1_arm_1,1,1,1,1,2,1,2,2,2,2,1,4,1,2,1,,evening,1,2,1,1,2,1,3,2,2,0,,0,,0,,2
+7051,week_3_arm_1,2,1,1,1,1,2,1,2,2,3,1,7,1,2,2,,varied,1,3,1,1,3,1,3,3,,0,,0,,0,,2
+7051,week_5_arm_1,1,1,1,1,3,2,2,2,2,4,1,3,1,2,1,,,2,3,2,3,,2,3,1,2,0,,0,,1,"mild nausea made me not go dancing on the cruise ship I was on last week",2
+7051,week_7_arm_1,1,1,1,1,1,2,2,1,1,2,1,4,2,2,1,,evening,3,,3,2,2,3,,3,,0,,0,,0,,2
+7051,week_9_arm_1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0
+7051,week_13_arm_1,1,1,1,1,1,2,2,1,2,1,3,1,1,3,1,,afternoon,3,,2,2,4,2,4,1,4,0,,0,,0,,2
+7052,baseline_5_arm_1,1,1,1,1,1,2,3,3,3,2,1,7,2,1,4,,"In the morning and after meals.",3,,3,3,,3,,3,,0,,0,,0,,2
+7052,baseline_3_arm_1,1,3,1,1,1,1,2,2,3,1,1,5,1,2,4,,,3,,3,3,,3,,3,,0,,0,,0,,2
+7052,baseline_1_arm_1,1,3,1,1,1,2,2,2,2,2,1,4,2,1,4,,"Morning, and after meals",3,,3,3,,3,,3,,0,,0,,0,,2
+7052,week_1_arm_1,1,2,1,1,1,2,2,2,2,2,1,4,2,2,4,,"morning and after meals",3,,3,3,,3,,3,,0,,0,,0,,2
+7052,week_3_arm_1,1,2,1,2,1,2,2,2,3,2,1,6,2,1,4,,,1,2,3,1,1,1,2,3,,0,,0,,0,,2
+7052,week_7_arm_1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0

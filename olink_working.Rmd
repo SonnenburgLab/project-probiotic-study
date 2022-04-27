@@ -1,0 +1,682 @@
+---
+title: "parse_raw_olink"
+author: "HCW"
+date: "12/10/2018"
+output: html_document
+---
+
+Package Loading
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(FactoMineR)
+library(ggfortify)
+library(factoextra)
+library(randomForest)
+```
+
+Import data
+```{r}
+save_figure_path <- "~/R/Project_Probiotic/CLEAN_CODE/plots/"
+
+project_probiotic_ppts <- readRDS("~/R/Project_Probiotic/CLEAN_CODE/data/project_probiotic_ppts.csv")
+raw_olink <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/20181072_Sonnenburg_NPX_LODP_edit.csv",stringsAsFactors = FALSE) %>% 
+  filter(QC.Warning=="Pass")
+temp <- tidyr::separate(raw_olink,col=Assay,into =c("runID","CTRU_ID","Temp_ID","tempa"),sep="-",remove=FALSE) %>% 
+  dplyr::filter(.,tempa =="a"|is.na(tempa)) %>% 
+  dplyr::select(.,-tempa) %>% 
+  dplyr::filter(.,runID=="41697")%>% 
+  tidyr::unite(.,"Assay",c("runID","CTRU_ID","Temp_ID"),sep="-")
+olink_qc <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/olink_QC.csv")
+olink_keep_vector <- filter(olink_qc,Missing.Data.freq.<.25)$Assay
+  
+redcap_name_tp_number <- data.frame(Timepoint_str=c("Baseline -3", "Baseline", "Week 4","Week 6","Week 8","Week 10","Week 14"),
+                                    Timepoint=c(2,3,5,6,7,8,10))
+corrected_grouping <- read.csv("~/R/Project_Probiotic/CLEAN_CODE/data/41697_OLINK_serum_2018-11-16.csv",stringsAsFactors = FALSE) %>% 
+  dplyr::rename(., Assay=Serum.Label,Timepoint_str=Timepoint,Timepoint=Visit..,Participant=Project.Probiotic.Study.ID,CTRU_ID=CTRU..OpenSpecimen.ID) %>% 
+  select(-Timepoint) %>% 
+  left_join(.,redcap_name_tp_number)
+
+olink_data <- left_join(dplyr::select(corrected_grouping, Participant,Timepoint,Assay),temp,by="Assay") %>%
+  dplyr::select(.,-Assay,-Plate.ID,-QC.Warning) %>% 
+  .[complete.cases(.), ] %>% 
+  gather(key=cytokine,value=cytokine_value,-Participant,-Timepoint) %>% 
+  mutate(cytokine_value=as.numeric(cytokine_value),
+         Participant=as.factor(Participant)) %>% 
+  left_join(project_probiotic_ppts,.) %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(1,2,3),"Baseline",
+                                ifelse(Timepoint %in% c(4,5,6),"Early_int",
+                                       ifelse(Timepoint %in% c(8),"Late_int",
+                                              "Washout")))) %>% 
+  filter(Participant != 7050)
+  # filter(cytokine %in% olink_keep_vector)
+
+# prob_responders <- c(7041,7031,7001,7018,7002,7038,7050,7012,7009,7017,7046,7006,7019,7047,7023,7015,7026,7005)
+# prob_responders <- c(7046,7006,7001,7050,7017,7018,7047,7009,7019,7026,7023,7015,7005)
+# prob_responders <- c(7041,7031,7002,7006,7046,7001,7018,7009,7050,7023,7047,7017,7015,7026,7005)
+prob_responders <- c(7041,7006,7027,7047,7002,7001,7050,7018,7009,7012,7015,7023,7005,7017)
+
+write.csv(olink_data,"~/R/Project_Probiotic/CLEAN_CODE/data/olink_clean.csv")
+
+```
+
+Siggenes to see if any cytokines significantly changed from baseline to end of intervention
+```{r}
+paired_df_ppt <- function(df,tp_1,tp_2){
+  df <- df %>% 
+    arrange(Participant)
+  temp_1 <- df %>% 
+    filter(Timepoint==tp_1) 
+  temp_2 <- df %>% 
+    filter(Timepoint==tp_2)
+  ppt_list <- intersect(temp_1$Participant,temp_2$Participant)
+  
+  df_paired <- bind_rows(
+    filter(temp_1, Participant %in% ppt_list),
+    filter(temp_2,Participant %in% ppt_list)
+  )
+  return(df_paired)
+}
+
+var_function <- function(df_spread,num_quantile){
+  vars_vector <- df_spread %>% 
+    select(-Participant,-Timepoint,-treatment_type,-Timepoint_label) %>% 
+    as.matrix() %>% 
+    colVars()
+  name_vector <- df_spread %>% 
+    select(-Participant,-Timepoint,-treatment_type,-Timepoint_label) %>% 
+    colnames()
+  filt_names <- name_vector[vars_vector>quantile(vars_vector)[num_quantile]] #top 75% varying proteins =2
+  return(filt_names)
+}
+```
+
+Paired siggenes end of intervention to baseline
+-filtered to top 75% most varying cytokines
+-no sig individual metabolites from baseline to end of intervention
+```{r}
+#Probiotic grop
+olink_data_probiotic <- olink_data %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  spread(key=cytokine,value=cytokine_value) 
+
+olink_probiotic_names <- var_function(olink_data_probiotic,2)
+olink_data_probiotic_filt <- olink_data %>% 
+  filter(treatment_type=="Probiotic" & cytokine %in% olink_probiotic_names) %>% 
+  spread(key=cytokine,value=cytokine_value)
+
+ctyokine_probiotic_filt_paired <- paired_df_ppt(olink_data_probiotic_filt,3,8)
+set.seed(20)
+siggenes_cl <- c((-1:-22), 1:22)
+siggenes_data <- t(ctyokine_probiotic_filt_paired[-c(1:4)])
+siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.1)
+
+
+#probiotic responders group
+olink_data_probiotic_resp <- olink_data %>% 
+  filter(Participant %in% prob_responders) %>% 
+  spread(key=cytokine,value=cytokine_value)
+
+olink_probiotic_resp_names <- var_function(olink_data_probiotic_resp,2)
+olink_data_probiotic_resp_filt <- olink_data %>% 
+  filter(Participant %in% prob_responders & cytokine %in% olink_probiotic_resp_names) %>% 
+  spread(key=cytokine,value=cytokine_value)
+
+ctyokine_probiotic_resp_filt_paired <- paired_df_ppt(olink_data_probiotic_resp_filt,3,8)
+set.seed(20)
+siggenes_cl <- c((-1:-11), 1:11)
+siggenes_data <- t(ctyokine_probiotic_resp_filt_paired[-c(1:4)])
+siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.1)
+siggenes_df <- summary(siggenes_output,0.1)
+
+
+#placebo grop
+olink_data_placebo <- olink_data %>% 
+  filter(treatment_type=="Placebo") %>% 
+  spread(key=cytokine,value=cytokine_value)
+
+olink_placebo_names <- var_function(olink_data_placebo,2)
+olink_data_placebo_filt <- olink_data %>% 
+  filter(treatment_type=="Placebo" & cytokine %in% olink_placebo_names) %>% 
+  spread(key=cytokine,value=cytokine_value)
+
+olink_data_placebo_filt_paired <- paired_df_ppt(olink_data_placebo_filt,3,8)
+set.seed(20)
+siggenes_cl <- c((-1:-12), 1:12)
+siggenes_data <- t(olink_data_placebo_filt_paired[-c(1:4)])
+siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.1)
+siggenes_df <- summary(siggenes_output,0.1)
+```
+
+Average the two baselin etimepoints and compare it to the end of intervention (late_int) levels
+```{r}
+paired_df_ppt <- function(df,tp_1,tp_2){
+  df <- df %>% 
+    arrange(Participant)
+  temp_1 <- df %>% 
+    filter(Timepoint_label==tp_1) 
+  temp_2 <- df %>% 
+    filter(Timepoint_label==tp_2)
+  ppt_list <- intersect(temp_1$Participant,temp_2$Participant)
+  
+  df_paired <- bind_rows(
+    filter(temp_1, Participant %in% ppt_list),
+    filter(temp_2,Participant %in% ppt_list)
+  )
+  return(df_paired)
+}
+var_function <- function(df_spread,num_quantile){
+  vars_vector <- df_spread %>% 
+    select(-Participant,-treatment_type,-Timepoint_label) %>% 
+    as.matrix() %>% 
+    colVars()
+  name_vector <- df_spread %>% 
+    select(-Participant,-treatment_type,-Timepoint_label) %>% 
+    colnames()
+  filt_names <- name_vector[vars_vector>quantile(vars_vector)[num_quantile]] #top 75% varying proteins =2
+  return(filt_names)
+}
+
+olink_data_tp_chunk <- olink_data %>% 
+  group_by(Participant,treatment_type,Timepoint_label,cytokine) %>% 
+  dplyr::summarize(cytokine_tp_avg=mean(cytokine_value,na.omit=TRUE)) %>% 
+  ungroup
+#write.csv(olink_data_tp_chunk,"~/R/Project_Probiotic/CLEAN_CODE/data/olink_data_tp_chunk.csv")
+
+#Probiotic grop
+olink_data_probiotic_tp_chunk <- olink_data_tp_chunk %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  spread(key=cytokine,value=cytokine_tp_avg)
+
+olink_probiotic_names_tp_chunk <- var_function(olink_data_probiotic_tp_chunk,2)
+olink_data_probiotic_filt_tp_chunk <- olink_data_tp_chunk %>% 
+  filter(treatment_type=="Probiotic" & cytokine %in% olink_probiotic_names_tp_chunk) %>% 
+  spread(key=cytokine,value=cytokine_tp_avg)
+
+ctyokine_probiotic_filt_paired_tp_chunk <- paired_df_ppt(olink_data_probiotic_filt_tp_chunk,"Baseline","Late_int")
+set.seed(20)
+siggenes_cl <- c((-1:-24), 1:24)
+siggenes_data <- t(ctyokine_probiotic_filt_paired_tp_chunk[-c(1:3)])
+siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.1)
+
+#Probiotic responders grop
+olink_data_probiotic_tp_chunk <- olink_data_tp_chunk %>% 
+  filter(Participant %in% prob_responders) %>% 
+  spread(key=cytokine,value=cytokine_tp_avg)
+
+olink_probiotic_names_tp_chunk <- var_function(olink_data_probiotic_tp_chunk,2)
+olink_data_probiotic_filt_tp_chunk <- olink_data_tp_chunk %>% 
+  filter(Participant %in% prob_responders & cytokine %in% olink_probiotic_names_tp_chunk) %>% 
+  spread(key=cytokine,value=cytokine_tp_avg)
+
+ctyokine_probiotic_filt_paired_tp_chunk <- paired_df_ppt(olink_data_probiotic_filt_tp_chunk,"Baseline","Late_int")
+set.seed(20)
+siggenes_cl <- c((-1:-13), 1:13)
+siggenes_data <- t(ctyokine_probiotic_filt_paired_tp_chunk[-c(1:3)])
+siggenes_output <- siggenes::sam(data=siggenes_data,cl=siggenes_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.1)
+# siggenes_df <- summary(siggenes_output,delta_siggenes[2])
+# siggenes_mat.sig <- siggenes_df@mat.sig %>%
+#   filter(q.value <= 0.1) %>%
+#   mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+#   select(Analyte,q.value)
+# 
+# olink_data_sig <- olink_data_tp_chunk %>% 
+#   filter(cytokine=="CCL20" & Timepoint_label != "Early_int") %>% 
+#   mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+#                               ifelse(Participant %in% prob_responders,"Responder","Non-responder")),
+#          prob_response=factor(prob_response,levels=c("Placebo","Non-responder","Responder"),ordered=TRUE))
+# 
+# ggplot(olink_data_sig,aes(x=Timepoint_label,y=cytokine_tp_avg,fill=prob_response))+
+#   geom_boxplot()+
+#   scale_fill_discrete(name = "prob_response", labels = c("Placebo","Non-responder","Responder"))+
+#   scale_fill_manual(values=c("gray85", "thistle3","thistle4"))+
+#   theme_classic()
+```
+
+
+```{r}
+unpairedYSAM <- function(df1,df2){
+  y = c(rep(0,dim(df1)[1]),rep(1,dim(df2)[1]))
+  return(y)
+}
+
+unpairedXSAM <- function(df1,df2,startIDs,endIDs){
+  x1 = t(df1[-c(startIDs:endIDs)])
+  #print(head(x1))
+  x2 = t(df2[-c(startIDs:endIDs)])
+  #print(head(x2))
+  x_all <- cbind(x1,x2) 
+  #print(x_all)
+  return(x_all)
+}
+
+var_function <- function(df_spread,num_quantile){
+  vars_vector <- df_spread %>% 
+    select(-Participant,-treatment_type) %>% 
+    as.matrix() %>% 
+    colVars()
+  name_vector <- df_spread %>% 
+    select(-Participant,-treatment_type) %>% 
+    colnames()
+  filt_names <- name_vector[vars_vector>quantile(vars_vector)[num_quantile]] #top 75% varying proteins =2
+  return(filt_names)
+}
+```
+
+Calculate percent difference from baseline to end of intervention
+-none sig
+```{r}
+olink_data_tp_chunk_percen_diff <- olink_data_tp_chunk %>% 
+  spread(key=Timepoint_label,value=cytokine_tp_avg) %>% 
+  mutate(Baseline_lateInt_percen=(Late_int-Baseline)/Baseline) %>% 
+  select(Participant,treatment_type,cytokine,Baseline_lateInt_percen) %>% 
+  spread(key=cytokine,value=Baseline_lateInt_percen) %>% 
+  na.omit()
+
+olink_names <- var_function(olink_data_tp_chunk_percen_diff,2)
+olink_data_tp_chunk_percen_diff_filt <- olink_data_tp_chunk_percen_diff %>% 
+  gather(key=cytokine,value=cytokine_diff_percen,-Participant,-treatment_type) %>% 
+  filter(cytokine %in% olink_names) %>% 
+  spread(key=cytokine,value=cytokine_diff_percen) %>% 
+  ungroup
+olink_data_tp_chunk_percen_diff_probiotic <- olink_data_tp_chunk_percen_diff_filt %>% 
+  filter(treatment_type=="Probiotic")
+olink_data_tp_chunk_percen_diff_placebo <- olink_data_tp_chunk_percen_diff_filt %>% 
+  filter(treatment_type=="Placebo")
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(olink_data_tp_chunk_percen_diff_probiotic,olink_data_tp_chunk_percen_diff_placebo,1,2)
+siggenes_input_cl <- unpairedYSAM(olink_data_tp_chunk_percen_diff_probiotic,olink_data_tp_chunk_percen_diff_placebo)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.1)
+# siggenes_df <- summary(siggenes_output,delta_siggenes[2])
+# siggenes_mat.sig <- siggenes_df@mat.sig %>%
+#   filter(q.value <= 0.1) %>% #q-value didn't pass 
+#   mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+#   select(Analyte,q.value)
+
+olink_data_tp_chunk_percen_diff_probiotic_responders <- olink_data_tp_chunk_percen_diff_probiotic %>% 
+  filter(Participant %in% prob_responders)
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(olink_data_tp_chunk_percen_diff_probiotic_responders,olink_data_tp_chunk_percen_diff_placebo,1,2)
+siggenes_input_cl <- unpairedYSAM(olink_data_tp_chunk_percen_diff_probiotic_responders,olink_data_tp_chunk_percen_diff_placebo)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.1)
+
+#plot change in ccl20 from the paired analysis in chunk above
+olink_data_tp_chunk_percen_diff <- olink_data_tp_chunk_percen_diff %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")),
+         prob_response=factor(prob_response,levels=c("Placebo","Non-responder","Responder"),ordered=TRUE))
+
+# ggplot(olink_data_tp_chunk_percen_diff,aes(x=prob_response,y=CCL20,fill=prob_response))+
+#   geom_boxplot()+
+#   scale_fill_discrete(name = "prob_response", labels = c("Placebo","Non-responder","Responder"))+
+#   scale_fill_manual(values=c("gray85", "thistle3","thistle4"))+
+#   theme_classic()+
+#   theme(text = element_text(size=18))+
+#   ylab("Percent change from Baseline to End of Intervention")+
+#   xlab("Probiotic Response Group")
+# ggsave(paste(save_figure_path,"ccl20_percen_change_boxplot.pdf"),width=10,height = 8)
+
+```
+
+Calculate levels at end of intervention between probiotic and placebo groups
+```{r}
+olink_data_tp_chunk_late_int <- olink_data_tp_chunk %>% 
+  filter(Timepoint_label=="Late_int") %>% 
+  spread(key=cytokine,value=cytokine_tp_avg) %>% 
+  na.omit() %>% 
+  select(-Timepoint_label)
+
+olink_names <- var_function(olink_data_tp_chunk_late_int,2)
+olink_data_tp_chunk_late_int_filt <- olink_data_tp_chunk_late_int %>% 
+  gather(key=cytokine,value=cytokine_tp_avg,-Participant,-treatment_type) %>% 
+  filter(cytokine %in% olink_names) %>% 
+  spread(key=cytokine,value=cytokine_tp_avg) %>% 
+  ungroup
+olink_data_tp_chunk_late_int_filt_prob <- olink_data_tp_chunk_percen_diff_filt %>% 
+  filter(treatment_type=="Probiotic")
+olink_data_tp_chunk_late_int_filt_plac <- olink_data_tp_chunk_percen_diff_filt %>% 
+  filter(treatment_type=="Placebo")
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(olink_data_tp_chunk_late_int_filt_prob,olink_data_tp_chunk_late_int_filt_plac,1,2)
+siggenes_input_cl <- unpairedYSAM(olink_data_tp_chunk_late_int_filt_prob,olink_data_tp_chunk_late_int_filt_plac)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+```
+
+
+Predict probiotic vs. placebo based on cytokine change
+```{r}
+olink_data_tp_chunk_percen_diff <- olink_data_tp_chunk_percen_diff %>% 
+  mutate(prob_response=ifelse(Participant %in% prob_responders,"Responder","Non-responder"))
+
+#probiotic vs. placebo 
+df_EN_raw <- olink_data_tp_chunk_percen_diff %>% 
+  select(-Participant,-prob_response) %>% 
+  mutate(treatment_type=as.factor(treatment_type))
+set.seed(2)
+trainIndex <- createDataPartition(df_EN_raw$treatment_type, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(treatment_type ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$treatment_type,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+
+#probiotic R vs. NR
+df_EN_raw <- olink_data_tp_chunk_percen_diff %>%
+  filter(treatment_type=="Probiotic") %>%
+  select(-Participant,-treatment_type) %>% 
+  mutate(prob_response=droplevels(as.factor(prob_response)))
+set.seed(2)
+trainIndex <- createDataPartition(df_EN_raw$prob_response, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(prob_response ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$prob_response,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+```
+
+
+Predict probiotic resposne based on baseline cytokine data
+```{r}
+olink_data_tp_chunk_prob_base <- olink_data_tp_chunk %>% 
+  filter(Timepoint_label=="Baseline" & treatment_type=="Probiotic") %>% 
+  mutate(prob_response=ifelse(Participant %in% prob_responders,"Responder","Non-responder")) %>% 
+  spread(key=cytokine,value=cytokine_tp_avg)
+
+# df_in <- bind_rows(food_data_tp_chunk_resp_base,food_data_tp_chunk_NONresp_base)
+# df_in <- bind_rows(ndsr_nut_resp_int,ndsr_nut_NONresp_int)
+
+df_EN_raw <- olink_data_tp_chunk_prob_base %>% 
+  select(-Participant,-treatment_type,-Timepoint_label) %>% 
+  mutate(prob_response=as.factor(prob_response))
+set.seed(2)
+trainIndex <- createDataPartition(df_EN_raw$prob_response, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(prob_response ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$prob_response,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+```
+Plot significant coefs from EN
+```{r}
+olink_data_tp_chunk_prob_base_gather_sigg <- olink_data_tp_chunk_prob_base %>% 
+  gather(key=cytokine,value=base_value,-Participant,-treatment_type,-Timepoint_label,-prob_response) %>% 
+  filter(cytokine %in% coefs_EN$metab)
+
+ggplot(olink_data_tp_chunk_prob_base_gather_sigg,aes(x=prob_response,y=base_value,fill=prob_response))+
+  geom_boxplot()+
+  facet_wrap(~cytokine,scales="free")+
+  theme_classic()+
+  scale_fill_manual(values=c("#b2182b","#2166ac"))
+
+```
+
+```{r}
+set.seed(200)
+#between probiotic and placebo
+olink_data_scale_diff_raw <- olink_data_tp_chunk_percen_diff %>% 
+  select(-Participant,-prob_response,-treatment_type)
+permanova <- adonis(olink_data_scale_diff_raw ~ treatment_type, data = olink_data_tp_chunk_percen_diff, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["treatment_type", "Pr(>F)"]
+
+#between probiotic R, NR, and placebo
+permanova <- adonis(olink_data_scale_diff_raw ~ prob_response, data = olink_data_tp_chunk_percen_diff, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["prob_response", "Pr(>F)"]
+
+#between baseline and maint probiotic group 
+olink_data_scale_paired_probiotic_raw <- ctyokine_probiotic_filt_paired_tp_chunk %>% 
+  select(-Participant,-treatment_type,-Timepoint_label)
+permanova <- adonis(olink_data_scale_paired_probiotic_raw ~ Timepoint_label, data = ctyokine_probiotic_filt_paired_tp_chunk, method='euclidean',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["Timepoint_label", "Pr(>F)"]
+
+#between baseline and maint probiotic R group 
+olink_data_scale_paired_probiotic_R <- ctyokine_probiotic_filt_paired_tp_chunk %>% 
+  mutate(prob_response=ifelse(Participant %in% prob_responders,"Responder","Non-responder")) %>% 
+  filter(prob_response=="Responder") 
+olink_data_scale_paired_probiotic_R_raw <- olink_data_scale_paired_probiotic_R %>% 
+  select(-Participant,-prob_response,-treatment_type,-Timepoint_label)
+permanova <- adonis(olink_data_scale_paired_probiotic_R_raw ~ Timepoint_label, data =olink_data_scale_paired_probiotic_R, method='euclidean',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["Timepoint_label", "Pr(>F)"]
+
+#betrween probiotic and placebo, end of intervention only
+olink_data_scale_late_int_raw <- olink_data_tp_chunk_late_int %>% 
+  select(-Participant,-treatment_type)
+permanova <- adonis(olink_data_scale_late_int_raw ~ treatment_type, data = olink_data_tp_chunk_late_int, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["treatment_type", "Pr(>F)"]
+
+#between R vs. NR, end of intervention only
+olink_data_tp_chunk_late_int_RNR <- olink_data_tp_chunk_late_int %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")),
+         prob_response=factor(prob_response,levels=c("Placebo","Non-responder","Responder"),ordered=TRUE))
+
+permanova <- adonis(olink_data_scale_late_int_raw ~ prob_response, data = olink_data_tp_chunk_late_int_RNR, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["prob_response", "Pr(>F)"]
+
+#R vs. all at end of intervention only
+olink_data_tp_chunk_late_int_RvsAll <- olink_data_tp_chunk_late_int_RNR %>%
+  mutate(R_all=ifelse(prob_response=="Responder","R","all"))
+permanova <- adonis(olink_data_scale_late_int_raw ~ R_all, data = olink_data_tp_chunk_late_int_RvsAll, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["R_all", "Pr(>F)"]
+```
+
+Plot PCoA space from the adonis 
+```{r}
+olink_data_tp_chunk_percen_diff <- olink_data_tp_chunk_percen_diff %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",ifelse(Participant %in% prob_responders,"Responder","Non-responder")))
+olink_data_tp_chunk_percen_diff_raw <- olink_data_tp_chunk_percen_diff %>% 
+  select(-Participant,-treatment_type,-prob_response)
+
+dis <- vegdist(olink_data_scale_diff_raw,method="eu")
+## Calculate multivariate dispersions
+mod <- betadisper(dis, olink_data_tp_chunk_percen_diff$prob_response)
+
+#get % variance
+mod[["eig"]][1]/sum(mod[["eig"]])
+# % var PCoA 2
+mod[["eig"]][2]/sum(mod[["eig"]])
+
+betadisper_df <- data.frame(Participant=olink_data_tp_chunk_percen_diff$Participant,
+                            treatment_type=olink_data_tp_chunk_percen_diff$treatment_type,
+                            prob_response=olink_data_tp_chunk_percen_diff$prob_response,
+                            dist_cent=mod[["distances"]],
+                            mod[["vectors"]]) 
+ggplot(betadisper_df,aes(x=PCoA1,y=PCoA2,colour=prob_response))+
+  geom_point(size=3)+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=prob_response),level = 0.50)+
+  scale_color_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()+
+  xlab("Inflammatory Marker Profile PCoA1")+
+  ylab("Inflammatory Marker Profile PCoA2")+
+  theme(text = element_text(size=18))
+ggsave(paste(save_figure_path,"cytokine_pcoa.pdf"),width=10,height = 8)
+
+t.test(filter(betadisper_df,treatment_type=="Probiotic")$dist_cent,filter(betadisper_df,treatment_type=="Placebo")$dist_cent)
+t.test(filter(betadisper_df,prob_response=="Responder")$dist_cent,filter(betadisper_df,prob_response=="Non-responder")$dist_cent)
+
+ggplot(betadisper_df,aes(x=prob_response,y=dist_cent,fill=prob_response))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("#b2182b","gray85","#2166ac"))+
+  theme_classic()
+```
+
+LOOCV predict probiotic vs. placebo
+```{r}
+loocv_rf_function <- function(df) {
+  set.seed(20)
+  folds <- groupKFold(df$Participant,k=length(unique(df$Participant)))
+  control <- rfeControl(functions=rfFuncs, method="LOOCV",number = 100,index=folds)
+  df_temp <- select(df,-Participant) %>% as.data.frame
+  df_centered <- center_scale(df_temp[,2:dim(df_temp)[2]])
+  rfe_obj <- rfe(df_centered,as.factor(df_temp[,1]), sizes=(2:ncol(df_temp)-1), rfeControl=control)
+  return(rfe_obj)
+}
+center_scale <- function(x) {
+    scale(x, scale = FALSE)
+}
+loocv_results_dfs <- function(loocv_object,data_type_char){
+  accuracy_df <- data.frame(data_type=data_type_char,
+                            max_acc=max(loocv_object[["results"]][["Accuracy"]]),
+                            optsize=loocv_object[["optsize"]])
+  optVariables_df <- data.frame(data_type=data_type_char,
+                            rank_order=c(1:length(loocv_object[["optVariables"]])),
+                            optVariables=loocv_object[["optVariables"]])
+  return(list(accuracy_df,optVariables_df))
+}
+```
+
+```{r}
+df_in <- olink_data_tp_chunk_percen_diff %>% 
+  select(-prob_response) %>% 
+  mutate(treatment_type=as.factor(treatment_type))
+
+loocv_rf_int_olink_percen <- df_in %>% 
+  loocv_rf_function()
+loocv_rf_int_olink_percen_pp <- loocv_rf_int_olink_percen %>% 
+  loocv_results_dfs(.,"olink_pp")
+
+# loocv_rf_results_metab_change_pp_sigg <- loocv_rf_results_metab_change_pp[[2]] %>% 
+#   filter(rank_order<5) 
+# metab_data_scale_diff_pp_sigg <- metab_data_scale_diff %>%
+#   gather(key=metab,value=metab_change,-Participant,-treatment_type,-prob_response) %>% 
+#   filter(metab %in% loocv_rf_results_metab_change_pp_sigg$optVariables)
+# ggplot(metab_data_scale_diff_pp_sigg,aes(x=treatment_type,y=metab_change,fill=treatment_type))+
+#   geom_boxplot()+
+#   theme_classic()+
+#   scale_fill_manual(values=c("gray85", "thistle4"))+
+#   facet_wrap(~metab,scales="free")
+
+#probiotic R vs. NR
+df_in <- olink_data_tp_chunk_percen_diff %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  select(Participant,prob_response,ADA:X4E.BP1) %>% 
+  mutate(prob_response=as.factor(prob_response))
+
+loocv_rf_int_olink_percen_rnr <- df_in %>% 
+  loocv_rf_function()
+loocv_rf_int_olink_percen_rnr <- loocv_rf_int_olink_percen %>% 
+  loocv_results_dfs(.,"olink_rnr")
+# metab_data_scale_diff <- metab_data_scale_diff %>% 
+#   mutate(prob_response=factor(prob_response,levels=c("Placebo","Non-responder","Responder"),ordered=TRUE))
+# ggplot(metab_data_scale_diff,aes(x=prob_response,y=HOMOVANILLIC.ACID_c18pos,fill=prob_response))+
+#   geom_boxplot()+
+#   theme_classic()+
+#   scale_fill_manual(values=c("gray","#b2182b","#2166ac"))
+# 
+# t.test(filter(metab_data_scale_diff,prob_response=="Responder")$HOMOVANILLIC.ACID_c18pos,filter(metab_data_scale_diff,prob_response=="Non-responder")$HOMOVANILLIC.ACID_c18pos)
+# t.test(filter(metab_data_scale_diff,prob_response=="Responder")$HOMOVANILLIC.ACID_c18pos,filter(metab_data_scale_diff,prob_response=="Placebo")$HOMOVANILLIC.ACID_c18pos)
+# t.test(filter(metab_data_scale_diff,prob_response=="Non-responder")$HOMOVANILLIC.ACID_c18pos,filter(metab_data_scale_diff,prob_response=="Placebo")$HOMOVANILLIC.ACID_c18pos)
+```
+```{r}
+olink_data_tp_chunk_spread <- olink_data_tp_chunk %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",ifelse(Participant %in% prob_responders,"Responder","Non-responder"))) %>% 
+  spread(key=cytokine,value=cytokine_tp_avg)
+
+olink_data_tp_chunk_spread_raw <- olink_data_tp_chunk_spread %>% 
+  select(-Participant,-treatment_type,-Timepoint_label,-prob_response)
+
+dis <- vegdist(olink_data_tp_chunk_spread_raw,method="eu")
+## Calculate multivariate dispersions
+mod <- betadisper(dis, paste(olink_data_tp_chunk_spread$prob_response,olink_data_tp_chunk_spread$Timepoint_label,sep="_"))
+
+betadisper_df <- data.frame(Participant=olink_data_tp_chunk_spread$Participant,
+                            treatment_type=olink_data_tp_chunk_spread$treatment_type,
+                            prob_response=olink_data_tp_chunk_spread$prob_response,
+                            Timepoint_label=olink_data_tp_chunk_spread$Timepoint_label,
+                            response_time=paste(olink_data_tp_chunk_spread$prob_response,olink_data_tp_chunk_spread$Timepoint_label,sep="_"),
+                            dist_cent=mod[["distances"]],
+                            mod[["vectors"]]) 
+
+ggplot(betadisper_df,aes(x=PCoA1,y=PCoA2,colour=response_time))+
+  geom_point()+
+  stat_ellipse(aes(x=PCoA1,y=PCoA2,colour=response_time),level = 0.50)+
+  # scale_color_manual(values=c("#d95f02","gray85","#1b9e77"))+
+  theme_classic()
+
+t.test(filter(betadisper_df,response_time=="Responder_Late_int")$dist_cent,filter(betadisper_df,response_time=="Non-responder_Late_int")$dist_cent)
+t.test(filter(betadisper_df,response_time=="Placebo_Baseline")$dist_cent,filter(betadisper_df,response_time=="Responder_Baseline")$dist_cent)
+
+ggplot(filter(betadisper_df,response_time %in% c("Responder_Late_int","Non-responder_Late_int")),aes(x=response_time,y=dist_cent,fill=response_time))+
+  geom_boxplot()+
+  # scale_fill_manual(values=c("#d95f02","gray85","#1b9e77"))+
+  theme_classic()
+
+#baseline levels sig different between groups 
+olink_data_tp_chunk_spread_base <- olink_data_tp_chunk_spread %>% 
+  filter(Timepoint_label=="Baseline")
+olink_data_tp_chunk_spread_base_raw <- olink_data_tp_chunk_spread_base %>% 
+  select(-Participant,-treatment_type,-Timepoint_label,-prob_response)
+
+permanova <- adonis(olink_data_tp_chunk_spread_base_raw ~ prob_response, data = olink_data_tp_chunk_spread_base, method='eu',na.rm = TRUE)
+as.data.frame(permanova$aov.tab)["prob_response", "Pr(>F)"]
+```
+

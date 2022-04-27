@@ -1,0 +1,1400 @@
+---
+title: "probiotic_food_groups"
+author: "HCW"
+date: "7/22/2019"
+output: html_document
+---
+
+```{r}
+library(randomForest)
+library(tidyverse)
+library(resample)
+```
+
+```{r}
+save_figure_path <- "~/R/Project_Probiotic/CLEAN_CODE/plots/"
+
+project_probiotic_ppts <- readRDS("~/R/Project_Probiotic/CLEAN_CODE/data/project_probiotic_ppts.csv")
+redcap_name_tp_number <- data.frame(redcap_event_name=c("baseline_4_arm_1","baseline_2_arm_1","baseline_arm_1","week_2_arm_1","week_4_arm_1","week_6_arm_1","week_8_arm_1","week_10_arm_1","week_12_arm_1","week_14_arm_1"),
+                                    Timepoint=c(1,2,3,4,5,6,7,8,9,10))
+met_syn_all <- readRDS("~/R/Project_Probiotic/CLEAN_CODE/data/met_syn_all.rds")
+
+# prob_responders <- c(7041,7031,7001,7018,7002,7038,7050,7012,7009,7017,7046,7006,7019,7047,7023,7015,7026,7005)
+# prob_responders <- c(7046,7006,7001,7050,7017,7018,7047,7009,7019,7026,7023,7015,7005)
+# prob_responders <- c(7041,7031,7002,7006,7046,7001,7018,7009,7050,7023,7047,7017,7015,7026,7005)
+prob_responders <- c(7041,7006,7027,7047,7002,7001,7050,7018,7009,7012,7015,7023,7005,7017) #with tp 1,2,3,7,8
+
+# 
+# prob_responders <- c(7005,7017,7023,7012,7015,7001,7050,7018,7002,7041,7006,7047,7027)
+
+food_data_raw <- read.csv("~/R/Project_Probiotic/food_data_probiotic_study.csv") %>% 
+  dplyr::rename(Participant=record_id) %>% 
+  mutate(Participant=as.factor(Participant)) %>% 
+  right_join(redcap_name_tp_number,.) %>% 
+  inner_join(project_probiotic_ppts,.)
+
+food_data <- food_data_raw %>%
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder"))) %>% 
+  gather(key=food,value=food_value,-Participant,-treatment_type,-redcap_event_name,-Timepoint,-prob_response) %>% 
+  select(-redcap_event_name) 
+
+food_data_spread <- food_data %>% 
+  spread(key=food,value=food_value)
+
+#NDSR food data
+ndsr_nutrients <- read.csv("~/R/Project_Probiotic/NDSR_food_data/NDSR_report_4_clean.csv") %>% 
+  dplyr::rename(Participant=record_id) %>% 
+  mutate(Timepoint_label=ifelse(Site.ID=="W0","Baseline","Intervention"),
+         prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder"))) %>% 
+  select(-X,-hw360_id,-treatment_grp,-Site.ID,-c(Header.Data.Field.1.Descriptor:Trailer.Data.Field.3.Response),
+         -c(Column.intentionally.left.blank:Column.intentionally.left.blank.3),-Trailer.Notes,-c(User.Nutrient.1..mg.:User.Nutrient.9..mg.),
+         -c(User.Nutrient.10..mg.:User.Nutrient.19..mg.),-Data.Generated.in.NCC.Database.Version,-Data.Generated.in.Software.Version,-Header.Notes) %>% 
+  gather(key=ndsr_nut,value=ndsr_value,-Participant,-treatment_type,-Timepoint_label,-prob_response) %>% 
+  group_by(Participant,treatment_type,prob_response,Timepoint_label,ndsr_nut) %>% 
+  dplyr::summarize(ndsr_value=mean(ndsr_value))
+ndsr_nutrients_spread <- ndsr_nutrients %>% 
+  spread(key=ndsr_nut,value=ndsr_value) %>% 
+  ungroup
+
+
+ndsr_food <- read.csv("~/R/Project_Probiotic/NDSR_food_data/NDSR_report_9_clean.csv") %>% 
+  dplyr::rename(Participant=record_id) %>% 
+  mutate(Timepoint_label=ifelse(Site.ID=="W0","Baseline","Intervention"),
+         prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder"))) %>% 
+  select(-X,-hw360_id,-treatment_grp,-Site.ID,-Date.of.Intake,-Project.Abbreviation) %>% 
+  gather(key=ndsr_food,value=ndsr_value,-Participant,-treatment_type,-Timepoint_label,-prob_response) %>% 
+  group_by(Participant,treatment_type,prob_response,Timepoint_label,ndsr_food) %>% 
+  dplyr::summarize(ndsr_value=mean(ndsr_value))
+ndsr_food_spread <- ndsr_food %>% 
+  spread(key=ndsr_food,value=ndsr_value) %>% 
+  ungroup
+
+ndsr_food_key <- read.csv("~/R/Project_Probiotic/NDSR_food_data/NDSR_report_9_food_key.csv")
+
+ndsr_2_intake <- read.csv("~/R/Project_Probiotic/NDSR_food_data/NDSR_report_2_clean.csv") 
+
+ndsr_2 <- ndsr_2_intake %>% 
+  dplyr::rename(Participant=record_id) %>% 
+  select(-X,-hw360_id,-treatment_grp,-Date.of.Intake,-Project.Abbreviation,-Food.File.ID,-Foods.Report.Item.Number,-c(Food.ID:Preparation.Food.Description)) %>%
+    mutate(Timepoint_label=ifelse(Site.ID=="W0","Baseline","Intervention"),
+         prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder"))) %>% 
+  select(-Site.ID) %>% 
+  gather(key=food,value=food_value,-Participant,-Timepoint_label,-prob_response,-treatment_type,-Food.Name) %>% 
+  mutate(food_value=as.numeric(food_value)) %>% 
+  na.omit()
+
+
+```
+
+Food kept constant over the course of the study
+-aggregate baseline
+-aggregate during study
+```{r}
+met_syn_all_tp_chunk <- met_syn_all %>% 
+  gather(key=param,value=param_value,-Participant,-Timepoint,-treatment_type) %>% 
+  mutate(param_value=as.numeric(param_value)) %>% 
+  na.omit %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(0),"Baseline",
+                                ifelse(Timepoint %in% c(1:8),"Intervention","Washout"))) %>% 
+  group_by(Participant,treatment_type,Timepoint_label,param) %>% 
+  dplyr::summarize(param_avg=median(param_value,na.rm=TRUE)) %>% 
+  spread(key=param,value=param_avg)
+
+food_data_tp_chunk <- food_data %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(0),"Baseline",
+                                ifelse(Timepoint %in% c(1:8),"Intervention","Washout"))) %>% 
+  group_by(Participant,treatment_type,prob_response,Timepoint_label,food) %>% 
+  dplyr::summarize(food_avg=median(food_value,na.rm=TRUE)) %>% 
+  right_join(select(met_syn_all_tp_chunk,Participant,Timepoint_label,WEIGHT),.) %>% 
+  mutate(food_norm_avg=food_avg/WEIGHT) %>% 
+  select(Participant,treatment_type,prob_response,Timepoint_label,food,food_norm_avg)
+food_data_tp_chunk_spread <- food_data_tp_chunk %>% 
+  spread(key=food,value=food_norm_avg) %>% 
+  ungroup %>% 
+  na.omit 
+```
+
+```{r}
+unpairedYSAM <- function(df1,df2){
+  y = c(rep(0,dim(df1)[1]),rep(1,dim(df2)[1]))
+  return(y)
+}
+
+unpairedXSAM <- function(df1,df2,startIDs,endIDs){
+  x1 = t(df1[-c(startIDs:endIDs)])
+  #print(head(x1))
+  x2 = t(df2[-c(startIDs:endIDs)])
+  #print(head(x2))
+  x_all <- cbind(x1,x2) 
+  #print(x_all)
+  return(x_all)
+}
+
+var_function <- function(df_spread,num_quantile){
+  vars_vector <- df_spread %>% 
+    as.matrix() %>% 
+    colVars()
+  name_vector <- df_spread %>% 
+    colnames()
+  filt_names <- name_vector[vars_vector>quantile(vars_vector,na.rm=TRUE)[num_quantile]] #top 75% varying proteins =2
+  return(filt_names)
+}
+```
+
+Unpaired ttest between responders and non responders
+```{r}
+#hw360 data
+# food_names <- var_function(food_data_tp_chunk_spread,4)
+# 
+# food_names <- food_data_tp_chunk_spread %>% 
+#   gather(key=food,value=food_value,-c(Participant:Timepoint_label)) %>% 
+#   spread(key=Timepoint_label,value=food_value) %>% 
+#   mutate(food_change=Intervention-Baseline) %>% 
+#   select(-Baseline,-Intervention,-Washout) %>% 
+#   spread(key=food,value=food_change) %>% 
+#   select(-c(Participant:prob_response)) %>% 
+#   var_function(4)
+
+food_data_tp_chunk_raw <- food_data_tp_chunk %>% 
+  ungroup %>% 
+  spread(key=food,value=food_norm_avg) %>% 
+  select(-c(Participant:Timepoint_label))
+
+#filter foods to those non-zero in at least x% of samples
+hw360_food_names <- apply(food_data_tp_chunk_raw,2,function(X){sum(X>0,na.rm = T)>0.5*length(X)}) %>% #filter parameters to at least 50% of samples, goes from 109 parameters to 95
+  as.data.frame %>% 
+  filter(.==TRUE) %>% 
+  rownames
+
+food_data_tp_chunk_resp_int <- food_data_tp_chunk %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Intervention" & (food %in% hw360_food_names)) %>% 
+  spread(key=food,value=food_norm_avg) %>% 
+  ungroup %>% 
+  na.omit
+food_data_tp_chunk_NONresp_int <- food_data_tp_chunk %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Intervention" & (food %in% hw360_food_names)) %>% 
+  spread(key=food,value=food_norm_avg) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(food_data_tp_chunk_resp_int,food_data_tp_chunk_NONresp_int,1,4)
+siggenes_input_cl <- unpairedYSAM(food_data_tp_chunk_resp_int,food_data_tp_chunk_NONresp_int)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+# siggenes_df <- summary(siggenes_output,1.280111)
+siggenes_df <- summary(siggenes_output,delta_siggenes[2])
+siggenes_mat.sig_hw360 <- siggenes_df@mat.sig %>%
+  filter(q.value <= 0.05) %>%
+  mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+  select(Analyte,q.value)
+
+#plot the differences
+food_data_tp_chunk_prob_int <- bind_rows(food_data_tp_chunk_resp_int,food_data_tp_chunk_NONresp_int)
+
+food_data_tp_chunk_prob_int_sigg <- food_data_tp_chunk_prob_int %>% 
+  gather(key=food,value=int_average,-c(Participant:Timepoint_label)) %>% 
+  filter(food %in% siggenes_mat.sig_hw360$Analyte)
+ggplot(food_data_tp_chunk_prob_int_sigg,aes(x=prob_response,y=int_average,colour=prob_response))+
+  geom_violin(fill="white",draw_quantiles=0.5)+
+  facet_wrap(~food,scales="free")+
+  theme_bw()+
+  scale_colour_manual(values=c("#b2182b","#2166ac"))
+
+
+
+hw360_food_data_int_probRNR_sigg <- food_data_tp_chunk_prob_int %>% 
+  gather(key=food,value=int_average,-c(Participant:Timepoint_label)) %>% 
+  group_by(treatment_type,prob_response,Timepoint_label,food) %>% 
+  dplyr::summarize(resp_int_avg=median(int_average,na.omit=TRUE)) %>% 
+  spread(key=prob_response,value=resp_int_avg) %>% 
+  mutate(R_NR_ratio=Responder/`Non-responder`) %>% 
+  filter(food %in% siggenes_mat.sig_hw360$Analyte)
+
+ggplot(hw360_food_data_int_probRNR_sigg,aes(x=reorder(food,R_NR_ratio),y=R_NR_ratio))+
+  geom_point(size=3)+
+  theme_bw()+
+  coord_flip()+
+  geom_hline(yintercept=1)+
+  scale_colour_manual(values=c("#b2182b","#2166ac"))+
+  theme(text = element_text(size=18))+
+  xlab("LOOCV RFE Food Parameters")+
+  ylab("Median Ratio of Intake at Week 10 Probiotic R vs. NR")
+
+ggplot(food_data_tp_chunk_prob_int,aes(x=prob_response,y=Energy..kcal.,fill=prob_response))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("#b2182b","#2166ac"))
+
+t.test(filter(food_data_tp_chunk_prob_int,prob_response=="Responder")$Energy..kcal.,filter(food_data_tp_chunk_prob_int,prob_response=="Non-responder")$Energy..kcal.)
+```
+
+also calculate the nutrient content normalized by cals
+```{r}
+food_data_tp_chunk_prob_int <- bind_rows(food_data_tp_chunk_resp_int,food_data_tp_chunk_NONresp_int)
+
+hw360_food_data_int_probRNR_sigg <- food_data_tp_chunk_prob_int %>% 
+  gather(key=food,value=int_average,-c(Participant:Timepoint_label)) %>% 
+  group_by(treatment_type,prob_response,Timepoint_label,food) %>% 
+  dplyr::summarize(resp_int_avg=mean(int_average,na.omit=TRUE)) %>% 
+  spread(key=prob_response,value=resp_int_avg) %>% 
+  mutate(R_NR_ratio=Responder/`Non-responder`) %>% 
+  filter(food %in% siggenes_mat.sig_hw360$Analyte)
+#all are hiher in Responders here, which is probably becuase they ate more calories in general
+
+ggplot(food_data_tp_chunk_prob_int,aes(x=prob_response,y=Energy..kcal.,fill=prob_response))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("#b2182b","#2166ac"))
+
+food_data_tp_chunk_calnorm <- food_data_tp_chunk %>% 
+  filter(food=="Energy..kcal.") %>% 
+  dplyr::rename(tot_kcals=food_norm_avg) %>% 
+  select(-food) %>% 
+  left_join(.,filter(food_data_tp_chunk,food!="Energy..kcal.")) %>% 
+  filter(food %in% hw360_food_names) %>% 
+  mutate(food_calnorm_avg=food_norm_avg/tot_kcals) %>% 
+  select(-food_norm_avg,-tot_kcals)
+
+food_data_tp_chunk_resp_int_calnorm <- food_data_tp_chunk_calnorm %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Intervention") %>% 
+  spread(key=food,value=food_calnorm_avg) %>% 
+  ungroup %>% 
+  na.omit
+food_data_tp_chunk_NONresp_int_calnorm <- food_data_tp_chunk_calnorm %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Intervention") %>% 
+  spread(key=food,value=food_calnorm_avg) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(food_data_tp_chunk_resp_int_calnorm,food_data_tp_chunk_NONresp_int_calnorm,1,4)
+siggenes_input_cl <- unpairedYSAM(food_data_tp_chunk_resp_int_calnorm,food_data_tp_chunk_NONresp_int_calnorm)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+# siggenes_df <- summary(siggenes_output,0.813684)
+# siggenes_mat.sig_hw360 <- siggenes_df@mat.sig %>%
+#   filter(q.value <= 0.1) %>%
+#   mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+#   select(Analyte,q.value)
+
+food_data_tp_chunk_resp_base_calnorm <- food_data_tp_chunk_calnorm %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Baseline") %>% 
+  spread(key=food,value=food_calnorm_avg) %>% 
+  ungroup %>% 
+  na.omit
+food_data_tp_chunk_NONresp_base_calnorm <- food_data_tp_chunk_calnorm %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Baseline") %>% 
+  spread(key=food,value=food_calnorm_avg) %>% 
+  ungroup %>% 
+  na.omit
+
+# set.seed(20)
+# siggenes_input_data <- unpairedXSAM(food_data_tp_chunk_resp_base_calnorm,food_data_tp_chunk_NONresp_base_calnorm,1,4)
+# siggenes_input_cl <- unpairedYSAM(food_data_tp_chunk_resp_base_calnorm,food_data_tp_chunk_NONresp_base_calnorm)
+# siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+# summary(siggenes_output)
+# delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+
+```
+
+Plot total calorie consumption during intervention for all participants
+```{r}
+food_data_tp_chunk_int_cal <- food_data_tp_chunk %>% 
+  filter(food=="Energy..kcal." & !Timepoint_label %in% c("Washout","Baseline")) %>% 
+  group_by(Participant,treatment_type,prob_response,food) %>% 
+  dplyr::summarize(food_value_all=mean(food_norm_avg)) %>% 
+  mutate(prob_response=ordered(prob_response,levels=c("Placebo","Non-responder","Responder")),
+         calories=food_value_all*100) %>% 
+  arrange(prob_response)
+  
+
+ggplot(food_data_tp_chunk_int_cal,aes(x=prob_response,y=calories,fill=prob_response))+
+  geom_boxplot()+
+  theme_classic()+
+  scale_fill_manual(values=c("gray85","#b2182b","#2166ac"))+
+  xlab("Treatment Arm/Response Group")+
+  ylab("Average calorie/day during baseline")+
+  theme(text = element_text(size=17))
+#ggsave(paste(save_figure_path,"calorie_intake_all.pdf"),width=7,height = 7)
+
+t.test(filter(food_data_tp_chunk_int_cal,prob_response=="Responder")$calories,filter(food_data_tp_chunk_int_cal,prob_response=="Non-responder")$calories)
+t.test(filter(food_data_tp_chunk_int_cal,prob_response=="Responder")$calories,filter(food_data_tp_chunk_int_cal,prob_response=="Placebo")$calories)
+
+#is there a bmi/waist difference at baseline and during intervention?
+
+met_syn_all_tp_chunk_edit <- met_syn_all_tp_chunk %>% 
+  filter(!Timepoint_label %in% c("Baseline","Washout")) %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")))
+t.test(filter(met_syn_all_tp_chunk_edit,prob_response=="Responder")$WAIST_CM,filter(met_syn_all_tp_chunk_edit,prob_response=="Non-responder")$WAIST_CM)
+t.test(filter(met_syn_all_tp_chunk_edit,prob_response=="Responder")$BMI,filter(met_syn_all_tp_chunk_edit,prob_response=="Non-responder")$BMI)
+```
+
+
+
+EN predicting probiotic R vs NR based on baseline food consumption
+-75-100% accuracy
+```{r}
+df_in <- bind_rows(food_data_tp_chunk_resp_base_calnorm,food_data_tp_chunk_NONresp_base_calnorm) 
+
+df_EN_raw <- df_in %>% 
+  select(-Participant,-treatment_type,-Timepoint_label) %>% 
+  mutate(prob_response=as.factor(prob_response)) %>% 
+  mutate_if(is.numeric, scale)
+set.seed(200)
+trainIndex <- createDataPartition(df_EN_raw$prob_response, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% mutate_if(is.numeric, scale)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% mutate_if(is.numeric, scale)
+set.seed(20)
+enetFit <- train(prob_response ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN_prob_resp_base <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+all_df <- bind_rows(df_EN_train,df_EN_test)
+pred_df_all <- data.frame(actual=df_EN_raw$prob_response,
+                          predicted=predict(enetFit, newdata = all_df),
+                          index_num=c(1:dim(all_df)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+
+
+coefs_EN_prob_resp_base_lot <- coefs_EN_prob_resp_base %>%
+  mutate(log_coef=-log(abs(coef))*round(coef)) %>% 
+  arrange(coef)
+
+ggplot(coefs_EN_prob_resp_base,aes(x=reorder(metab,sign), y=coef, colour = sign,size = abs(coef))) +
+  geom_point()+
+  theme_bw()+
+  scale_colour_manual(values=c("#d95f02","#1b9e77"))+
+  # scale_colour_gradient2(low="red",mid="white",high="blue")+
+  scale_size(range = c(4, 10), name="Coefficient")+
+  xlab("Nutrition Intake")+
+  ylab("Elastic Net Coefficient")+
+  theme(text = element_text(size=17))+
+  coord_flip()
+#ggsave(paste(save_figure_path,"food_probiotic_R_NR_Elastic_net.pdf"),width=13,height = 6.7)
+
+df_in_sigg <- df_in %>% 
+  gather(key=food,value=food_value,-c(Participant:Timepoint_label)) %>% 
+  filter(food %in% coefs_EN_prob_resp_base$metab)
+
+# ggplot(df_in_sigg,aes(x=prob_response,y=food_value,fill=prob_response))+
+#   geom_boxplot()+
+#   facet_wrap(~food,scales="free")
+```
+LOOCV RFE
+```{r}
+loocv_rf_function <- function(df) {
+  set.seed(200)
+  folds <- groupKFold(df$Participant,k=length(unique(df$Participant)))
+  control <- rfeControl(functions=rfFuncs, method="LOOCV",number = 100,index=folds)
+  df_temp <- select(df,-Participant,-Timepoint_label) %>% as.data.frame
+  df_centered <- center_scale(df_temp[,2:dim(df_temp)[2]])
+  rfe_obj <- rfe(df_centered,as.factor(df_temp[,1]), sizes=(2:ncol(df_temp)-1), rfeControl=control)
+  return(rfe_obj)
+}
+center_scale <- function(x) {
+    scale(x, scale = FALSE)
+}
+loocv_results_dfs <- function(loocv_object,data_type_char){
+  accuracy_df <- data.frame(data_type=data_type_char,
+                            max_acc=max(loocv_object[["results"]][["Accuracy"]]),
+                            optsize=loocv_object[["optsize"]])
+  optVariables_df <- data.frame(data_type=data_type_char,
+                            rank_order=c(1:length(loocv_object[["optVariables"]])),
+                            optVariables=loocv_object[["optVariables"]])
+  return(list(accuracy_df,optVariables_df))
+}
+```
+
+
+```{r}
+df_in <- bind_rows(food_data_tp_chunk_resp_int_calnorm,food_data_tp_chunk_NONresp_int_calnorm) %>% 
+  ungroup %>% 
+  select(-treatment_type)
+
+loocv_rf_int_hw360 <- df_in %>% 
+  loocv_rf_function()
+loocv_rf_results_int_360 <- loocv_rf_int_hw360 %>% 
+  loocv_results_dfs(.,"hw360_int")
+
+hw360_loocv_rf_optVar <- loocv_rf_results_int_360[[2]] %>% 
+  dplyr::rename(food=optVariables)
+
+ndsr_2_loocv_optVar_gather <- ndsr_2 %>% 
+  left_join(hw360_loocv_rf_optVar,.) %>% 
+  filter(food_value>0 & Timepoint_label=="Intervention" & treatment_type=="Probiotic") %>% 
+  group_by(treatment_type,prob_response,Timepoint_label,food,rank_order,Food.Name) %>% 
+  dplyr::summarize(food_sum=mean(food_value,na.rm = TRUE))
+
+ndsr_2_loocv_optVar <- ndsr_2_loocv_optVar_gather %>% 
+  spread(key=Food.Name,value=food_sum) %>% 
+  arrange(rank_order)
+ndsr_2_loocv_optVar[is.na(ndsr_2_loocv_optVar)] <- 0
+```
+
+```{r}
+loocv_rfe_hw360_sigg_food_med <- bind_rows(food_data_tp_chunk_resp_int_calnorm,
+                                     food_data_tp_chunk_NONresp_int_calnorm) %>% 
+  gather(key=sigg_hw360,value=calnorm_value,-c(Participant:Timepoint_label)) %>% 
+  group_by(treatment_type,prob_response,Timepoint_label,sigg_hw360) %>% 
+  dplyr::summarize(prob_resp_value=median(calnorm_value)) %>% 
+  spread(key=prob_response,value=prob_resp_value) %>% 
+  mutate(R_NR_ratio=Responder/`Non-responder`,
+         R_NR_high=ifelse(R_NR_ratio>1,"R","NR")) %>%
+  left_join(hw360_loocv_rf_optVar,.,by=c("food"="sigg_hw360")) %>% 
+  # filter(sigg_hw360 %in% hw360_loocv_rf_optVar$food) %>% 
+  mutate(sigg_hw360_1=gsub(".g.","(g)",food,fixed=TRUE),
+         sigg_hw360_2=gsub(".mg.","(mg)",sigg_hw360_1,fixed=TRUE),
+         sigg_hw360_3=gsub(".mcg.","(mcg)",sigg_hw360_2,fixed=TRUE),
+         sigg_hw360_4=gsub("."," ",sigg_hw360_3,fixed=TRUE))
+
+ggplot(loocv_rfe_hw360_sigg_food_med,aes(x=reorder(sigg_hw360_4,R_NR_ratio),y=R_NR_ratio,colour=R_NR_high))+
+  geom_point(size=3)+
+  theme_bw()+
+  coord_flip()+
+  geom_hline(yintercept=1)+
+  scale_colour_manual(values=c("#b2182b","#2166ac"))+
+  theme(text = element_text(size=18))+
+  xlab("LOOCV RFE Food Parameters")+
+  ylab("Median Ratio of Intake at Week 10 Probiotic R vs. NR")
+#ggsave(paste(save_figure_path,"loocv_rfe_params_line_plot.pdf"),width=15,height=11.5)
+# ggplot(loocv_rfe_hw360_sigg_food_med,aes(x=reorder(sigg_hw360_4,-rank_order),y=R_NR_ratio,colour=R_NR_high))+
+#   geom_point()+
+#   theme_bw()+
+#   coord_flip()+
+#   geom_hline(yintercept=1)+
+#   scale_colour_manual(values=c("#b2182b","#2166ac"))
+```
+
+Plot heatmaps of hw360 nutrients for R and NR
+```{r}
+loocv_rfe_hw360_sigg_food_all <- bind_rows(food_data_tp_chunk_resp_int_calnorm,
+                                     food_data_tp_chunk_NONresp_int_calnorm) %>% 
+  gather(key=sigg_hw360,value=calnorm_value,-c(Participant:Timepoint_label)) %>% 
+  left_join(hw360_loocv_rf_optVar,.,by=c("food"="sigg_hw360")) %>% 
+  mutate(sigg_hw360_1=gsub(".g.","(g)",food,fixed=TRUE),
+         sigg_hw360_2=gsub(".mg.","(mg)",sigg_hw360_1,fixed=TRUE),
+         sigg_hw360_3=gsub(".mcg.","(mcg)",sigg_hw360_2,fixed=TRUE),
+         sigg_hw360_4=gsub("."," ",sigg_hw360_3,fixed=TRUE)) %>% 
+  select(Participant,treatment_type,prob_response,Timepoint_label,sigg_hw360_4,calnorm_value) %>% 
+  spread(key=sigg_hw360_4,value=calnorm_value)
+
+loocv_rfe_hw360_sigg_food_all_raw <- loocv_rfe_hw360_sigg_food_all %>% 
+  select(-c(Participant:Timepoint_label)) %>% 
+  as.matrix
+rownames(loocv_rfe_hw360_sigg_food_all_raw) <- loocv_rfe_hw360_sigg_food_all$Participant
+
+obj_hmap <- Heatmap(t(scale(loocv_rfe_hw360_sigg_food_all_raw)),
+        name="Food intake from LOOCV RFE",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        column_split=loocv_rfe_hw360_sigg_food_all$prob_response,
+        na_col = "black",
+        #row_title="Transcript class",
+        border=FALSE,
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=TRUE)
+obj_hmap
+```
+
+```{r}
+ndsr_2_intake_int_prob <- ndsr_2_intake %>% 
+  filter(Site.ID=="W10") %>% 
+  select(record_id,treatment_type,Food.Name,Gram.Amount.of.Food) %>% 
+  mutate(prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(record_id %in% prob_responders,"Responder","Non-responder"))) %>% 
+  group_by(record_id,treatment_type,prob_response,Food.Name) %>% 
+  dplyr::summarize(gram_intake=sum(Gram.Amount.of.Food)) %>% 
+  spread(key=Food.Name,value=gram_intake) %>% 
+  filter(treatment_type=="Probiotic")
+ndsr_2_intake_int_prob[is.na(ndsr_2_intake_int_prob)]=0
+
+df_in <- ndsr_2_intake_int_prob %>% 
+  dplyr::rename(Participant=record_id) %>% 
+  ungroup %>% 
+  select(-treatment_type) %>% 
+  mutate(Timepoint_label="W0")
+
+loocv_rf_int_ndsr2 <- df_in %>% 
+  loocv_rf_function()
+loocv_rf_results_int_ndsr2 <- loocv_rf_int_ndsr2 %>% 
+  loocv_results_dfs(.,"ndsr2_intake")
+
+hw360_loocv_rf_optVar <- loocv_rf_results_int_360[[2]] %>% 
+  dplyr::rename(food=optVariables)
+
+ndsr_2_intake_int_prob_raw <- ndsr_2_intake_int_prob %>%
+  ungroup %>%
+  select(-record_id,-treatment_type,-prob_response)
+loocv_rfe_food_names <- apply(ndsr_2_intake_int_prob_raw,2,function(X){sum(X>0,na.rm = T)>0.1*length(X)}) %>%
+  as.data.frame %>%
+  filter(.==TRUE) %>%
+  rownames
+# write.csv(loocv_rfe_food_names,"~/R/Project_Probiotic/NDSR_food_data/ndsr_2_food_tenpercent.csv")
+
+ndsr_2_annot <- read.csv("~/R/Project_Probiotic/NDSR_food_data/ndsr_2_food_tenpercent.csv")
+```
+```{r}
+# ndsr_2_loocv_optVar_raw <-  ndsr_2_loocv_optVar %>% ungroup %>% select(-c(treatment_type:rank_order))
+
+# loocv_rfe_food_names <- apply(ndsr_2_loocv_optVar_raw,2,function(X){sum(X>0,na.rm = T)>0.50*length(X)}) %>% #filter asvs to at least 10% of samples
+#   as.data.frame %>% 
+#   filter(.==TRUE) %>% 
+#   rownames
+# loocv_rfe_food_annot <- read.csv("~/R/Project_Probiotic/NDSR_food_data/loocv_rfe_food_names_annotated.csv") %>% 
+#   filter(Food.Name %in% loocv_rfe_food_names)
+
+obj_HM <- ndsr_2_intake_int_prob_raw %>% select(!!!ndsr_2_annot$food) %>% as.matrix
+# rownames(obj_HM) <- mutate(ndsr_2_loocv_optVar,sigg_hw360_1=gsub(".g.","(g)",food,fixed=TRUE),
+#          sigg_hw360_2=gsub(".mg.","(mg)",sigg_hw360_1,fixed=TRUE),
+#          sigg_hw360_3=gsub(".mcg.","(mcg)",sigg_hw360_2,fixed=TRUE),
+#          sigg_hw360_4=gsub("."," ",sigg_hw360_3,fixed=TRUE))$sigg_hw360_4
+
+column_ha = HeatmapAnnotation(Group = ndsr_2_annot$food_annot,
+                              col = list(Group=c('nuts'='#a6cee3','fruits'='#1f78b4','vegetables'='#b2df8a','meat'='#33a02c','sweets'='#fb9a99','legumes'='#e31a1c',"sauce"='#fdbf6f',"grains"='#ff7f00',"misc"='#cab2d6',"dairy"='#6a3d9a',"beverage"='#ffff99',"alcohol"='#b15928',"eggs"='black','fats'='white')))
+
+obj_hmap <- Heatmap(scale(obj_HM),
+        name="Food intake from LOOCV RFE",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=ndsr_2_intake_int_prob$prob_response,
+        na_col = "black",
+        #row_title="Transcript class",
+        border=FALSE,
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=FALSE,
+        # row_order = order(as.numeric(rownames(obj_HM))),
+        top_annotation = column_ha)
+        # column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        #clustering_method_columns="ward.D2",
+        # clustering_distance_rows="euclidean",
+        # clustering_method_rows="ward.D",
+        # row_dend_width=unit(30,"mm"),
+        # column_dend_height=unit(30,"mm"))
+obj_hmap
+```
+
+
+
+
+Plot heatmaps of food for prob R and NR
+```{r}
+ndsr_2_loocv_optVar_raw <-  ndsr_2_loocv_optVar %>% ungroup %>% select(-c(treatment_type:rank_order))
+
+# loocv_rfe_food_names <- apply(ndsr_2_loocv_optVar_raw,2,function(X){sum(X>0,na.rm = T)>0.50*length(X)}) %>% #filter asvs to at least 10% of samples
+#   as.data.frame %>% 
+#   filter(.==TRUE) %>% 
+#   rownames
+# loocv_rfe_food_annot <- read.csv("~/R/Project_Probiotic/NDSR_food_data/loocv_rfe_food_names_annotated.csv") %>% 
+#   filter(Food.Name %in% loocv_rfe_food_names)
+
+obj_HM <- ndsr_2_loocv_optVar_raw %>% select(!!!ndsr_2_annot$food) %>% as.matrix
+rownames(obj_HM) <- mutate(ndsr_2_loocv_optVar,sigg_hw360_1=gsub(".g.","(g)",food,fixed=TRUE),
+         sigg_hw360_2=gsub(".mg.","(mg)",sigg_hw360_1,fixed=TRUE),
+         sigg_hw360_3=gsub(".mcg.","(mcg)",sigg_hw360_2,fixed=TRUE),
+         sigg_hw360_4=gsub("."," ",sigg_hw360_3,fixed=TRUE))$sigg_hw360_4
+
+column_ha = HeatmapAnnotation(Group = ndsr_2_annot$food_annot,
+                              col = list(Group=c('nuts'='#a6cee3','fruits'='#1f78b4','vegetables'='#b2df8a','meat'='#33a02c','sweets'='#fb9a99','legumes'='#e31a1c',"sauce"='#fdbf6f',"grains"='#ff7f00',"misc"='#cab2d6',"dairy"='#6a3d9a',"beverage"='#ffff99',"alcohol"='#b15928',"eggs"='black','fats'='white')))
+
+obj_hmap <- Heatmap(scale(obj_HM),
+        name="Food intake from LOOCV RFE",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        split=ndsr_2_loocv_optVar$prob_response,
+        na_col = "black",
+        #row_title="Transcript class",
+        border=FALSE,
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=FALSE,
+        row_order = order(as.numeric(rownames(obj_HM))),
+        top_annotation = column_ha)
+        # column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        #clustering_method_columns="ward.D2",
+        # clustering_distance_rows="euclidean",
+        # clustering_method_rows="ward.D",
+        # row_dend_width=unit(30,"mm"),
+        # column_dend_height=unit(30,"mm"))
+obj_hmap
+```
+
+Merge the above heatmaps into one that shows ratio of food NR vs R
+```{r}
+ndsr_2_loocv_optVar_diff <- ndsr_2_loocv_optVar %>% 
+  gather(key=ndsr_2_food,value=food_value,`almonds, almond butter, with salt`:`zucchini, raw`) %>% 
+  # filter(ndsr_2_food!="green or string beans, cooked from fresh") %>% 
+  spread(prob_response,value=food_value) %>% 
+  mutate(R_NR_diff=`Non-responder`-Responder) %>% 
+  select(-Responder,-`Non-responder`) %>% 
+  spread(key=ndsr_2_food,value=R_NR_diff)
+ndsr_2_loocv_optVar_diff_raw <-  ndsr_2_loocv_optVar_diff %>% ungroup %>% select(-c(treatment_type:rank_order))
+
+# loocv_rfe_food_names <- apply(ndsr_2_loocv_optVar_diff_raw,2,function(X){sum(X!=0,na.rm = T)>0.35*length(X)}) %>% #filter asvs to at least 10% of samples
+#   as.data.frame %>% 
+#   filter(.==TRUE) %>% 
+#   rownames
+
+obj_HM <- ndsr_2_loocv_optVar_diff_raw %>% select(!!!ndsr_2_annot$food) %>% as.matrix
+rownames(obj_HM) <- mutate(ndsr_2_loocv_optVar_diff,sigg_hw360_1=gsub(".g.","(g)",food,fixed=TRUE),
+         sigg_hw360_2=gsub(".mg.","(mg)",sigg_hw360_1,fixed=TRUE),
+         sigg_hw360_3=gsub(".mcg.","(mcg)",sigg_hw360_2,fixed=TRUE),
+         sigg_hw360_4=gsub("."," ",sigg_hw360_3,fixed=TRUE))$sigg_hw360_4
+
+column_ha = HeatmapAnnotation(Group = ndsr_2_annot$food_annot,
+                              col = list(Group=c('nuts'='#a6cee3','fruits'='#1f78b4','vegetables'='#b2df8a','meat'='#33a02c','sweets'='#fb9a99','legumes'='#e31a1c',"sauce"='#fdbf6f',"grains"='#ff7f00',"misc"='#cab2d6',"dairy"='#6a3d9a',"beverage"='#ffff99',"alcohol"='#b15928',"eggs"='black','fats'='white')))
+
+#colors
+col_fun = colorRamp2(c(-7, 0, 7), c("blue", "white", "red"))
+# col_fun(seq(-3, 3))
+
+
+obj_hmap <- Heatmap(obj_HM,
+        name="Difference in Food Intake",
+        #col=colorRamp2(colors, my_palette),
+        heatmap_legend_param=list(color_bar="discrete", legend_direction="vertical", legend_width=unit(5,"cm"), title_position="topcenter", title_gp=gpar(fontsize=10, fontface="bold")),
+        # split=ndsr_2_loocv_optVar$prob_response,
+        na_col = "black",
+        #row_title="Transcript class",
+        border=FALSE,
+        row_title_side="left",
+        row_title_gp=gpar(fontsize=15, fontface="bold"),
+        show_row_names=TRUE,
+        column_title="",
+        column_title_side="top",
+        column_title_gp=gpar(fontsize=15, fontface="bold"),
+        column_title_rot=0,
+        show_column_names=FALSE,
+        row_order = order(as.numeric(ndsr_2_loocv_optVar_diff$rank_order)),
+        top_annotation = column_ha,
+        col = col_fun,
+        # clustering_method_columns = "centroid",
+        # column_dend_height = unit(8, "cm"),
+        # column_order = order(as.numeric(gsub("column", "", colnames(met_syn_screening_idf_clean_HM)))),
+        #clustering_distance_columns=function(x) as.dist(1-cor(t(x))),
+        clustering_distance_columns="euclidean")
+        # clustering_distance_rows="euclidean",
+        # clustering_method_rows="ward.D",
+        # row_dend_width=unit(30,"mm"),
+        # column_dend_height=unit(30,"mm"))
+obj_hmap
+
+dend_obj <- column_dend(obj_hmap)
+plot(dend_obj)
+# 
+# set.seed(123)
+# fviz_nbclust(t(obj_HM), kmeans, method = "silhouette")
+# 
+# km.res <- kmeans(t(obj_HM), 2, nstart = 25)
+# fviz_cluster(km.res, data = t(obj_HM))
+# table(km.res$cluster)
+
+```
+
+Correlate triglyceride change with intake 
+```{r}
+LME_one_by_one_function <- function(df,names_vector,y_value_col,group_id_col){
+  # df=temp_LME
+  # names_vector=unique(met_syn_food_all_tps$food)
+  # y_value_col=i
+  # group_id_col="treatment_type"
+  pValueList <- c()
+  pValue_grpList <- c()
+  xList <- c()
+  correValueList <- c()
+  stdEList <-c()
+  intList <- c()
+  for (i in names_vector){
+    print(i)
+    newdf <- data.frame(out = scale(df[,y_value_col]), 
+                        xColName =scale(df[, i]), 
+                        id = df[,"Participant"],
+                        group_id=as.factor(df[,group_id_col]))
+    #print(newdf)
+    colnames(newdf)[2] <- "xColName"
+    lmeData <- lme(out ~ xColName+group_id, data = newdf,random = ~1|id,na.action = na.omit,control=(msMaxIter=100))
+    pVal = summary(lmeData)$tTable[2,5]
+    group_pval = summary(lmeData)$tTable[3,5]
+    corre = summary(lmeData)$tTable[2,1]
+    stdE = summary(lmeData)$tTable[2,2]
+    intercept = summary(lmeData)$tTable[1,1]
+    xList <- c(xList,i)
+    pValueList <- c(pValueList,pVal)
+    pValue_grpList <- c(pValue_grpList,group_pval)
+    correValueList <- c(correValueList,corre)
+    stdEList <- c(stdEList,stdE)
+    intList <- c(intList,intercept)
+  }
+  LME_pTable <- data.frame(xColName = xList,
+                           correlation = correValueList,
+                           pValue = pValueList,
+                           pValueAdj = p.adjust(pValueList,method="fdr"),
+                           pValue_grp=pValue_grpList,
+                           pValue_grpAdj=p.adjust(pValue_grpList,method="fdr"),
+                           intercept=intList,stdE=stdEList)
+  return(LME_pTable)
+}
+```
+
+
+LME with all of the food and group as parameters, and met syn change as the outcome
+```{r}
+
+
+
+food_data_int_avg <- met_syn_food_all_tps %>% 
+  filter(Timepoint %in% c(4:10)) %>% 
+  group_by(Participant,prob_response,treatment_type,food) %>% 
+  dplyr::summarize(food_int_avg=mean(food_value_wt_cal_norm))
+
+metsyn_percenchange_intfood <- met_syn_all_tp_chunks_baseline_percen_all %>% 
+  inner_join(.,food_data_int_avg) %>% 
+  select(Participant,treatment_type,prob_response, metsyn_param,Baseline_lateInt_percen,food,food_int_avg) %>% 
+  spread(key=metsyn_param,value=Baseline_lateInt_percen) %>% 
+  spread(key=food,value=food_int_avg) %>% 
+  as.data.frame
+
+
+lme_obj <- LME_one_by_one_function(metsyn_percenchange_intfood,unique(met_syn_food_all_tps$food),"triglycerides","prob_response")
+
+
+```
+
+
+
+```{r}
+met_syn_food_all_tps <- met_syn_all %>% 
+  # select(Participant,treatment_type,Timepoint,triglycerides,dias_bp,WEIGHT) %>% 
+  na.omit %>% 
+  inner_join(.,food_data) %>% 
+  filter(!food %in% c("Energy..kcal.","Formononetin..mg.","Coumestrol..mg.","Sucralose..mg.")) %>% 
+  # filter(food %in% hw360_loocv_rf_optVar$food) %>% 
+  # filter(!food %in% c("Energy..kcal.","Coumestrol..mg.","Formononetin..mg.","Acesulfame.Potassium..mg.","Aspartame..mg.","Saccharin..mg.","Sucralose..mg.","Vitamin.E..synthetic...mg.")) %>% 
+  left_join(.,filter(food_data,food=="Energy..kcal.") %>% dplyr::rename(kcal=food_value) %>% select(Participant,Timepoint,kcal)) %>% 
+  mutate(food_value_wt_cal_norm=food_value/WEIGHT/kcal,
+         WAIST_CM=as.numeric(WAIST_CM)) %>% 
+  # select(Participant,treatment_type,Timepoint,prob_response,triglycerides,dias_bp,food,food_value_wt_cal_norm) %>%
+  na.omit 
+
+met_syn_params <- c("WAIST_CM","dias_bp","sys_bp","triglycerides","hdl_chol","ldl_chol","alt","insulin","glucose_ctru")
+metsyn_hw360_tt_LME <- data.frame(metsyn=c(),
+                               xColName=c(),
+                               correlation=c(),
+                               pValue=c(),
+                               pValueAdj=c(),
+                               pValue_grp=c(),
+                               pValue_grpAdj=c())
+for(i in met_syn_params){
+  # i=met_syn_params[4]
+  df_spread <- met_syn_food_all_tps %>% 
+    select(Participant,treatment_type,prob_response,Timepoint,prob_response,i,dias_bp,food,food_value_wt_cal_norm) %>% 
+    na.omit() %>% 
+    spread(key=food,value=food_value_wt_cal_norm)
+  temp_LME <- df_spread %>% 
+    # filter(treatment_type=="Probiotic") %>%
+    filter(Timepoint %in% c(4:10)) %>% 
+    LME_one_by_one_function(unique(met_syn_food_all_tps$food),i,"treatment_type") %>% 
+    mutate(metsyn=i) %>% 
+    select(metsyn,xColName,correlation,pValue,pValueAdj,pValue_grp,pValue_grpAdj)
+  metsyn_hw360_tt_LME <- bind_rows(metsyn_hw360_tt_LME,temp_LME)
+}
+
+metsyn_hw360_pr_LME <- data.frame(metsyn=c(),
+                               xColName=c(),
+                               correlation=c(),
+                               pValue=c(),
+                               pValueAdj=c(),
+                               pValue_grp=c(),
+                               pValue_grpAdj=c())
+for(i in met_syn_params){
+  # i=met_syn_params[4]
+  df_spread <- met_syn_food_all_tps %>% 
+    select(Participant,treatment_type,prob_response,Timepoint,prob_response,i,dias_bp,food,food_value_wt_cal_norm) %>% 
+    na.omit() %>% 
+    spread(key=food,value=food_value_wt_cal_norm)
+  temp_LME <- df_spread %>% 
+    filter(treatment_type=="Probiotic") %>%
+    filter(Timepoint %in% c(4:10)) %>% 
+    LME_one_by_one_function(unique(met_syn_food_all_tps$food),i,"prob_response") %>% 
+    mutate(metsyn=i) %>% 
+    select(metsyn,xColName,correlation,pValue,pValueAdj,pValue_grp,pValue_grpAdj)
+  metsyn_hw360_pr_LME <- bind_rows(metsyn_hw360_pr_LME,temp_LME)
+}
+
+
+
+metsyn_hw360_prob_LME <- data.frame(metsyn=c(),
+                               xColName=c(),
+                               correlation=c(),
+                               pValue=c(),
+                               pValueAdj=c())
+for(i in met_syn_params){
+  # i=met_syn_params[1]
+  df_spread <- met_syn_food_all_tps %>% 
+    select(Participant,treatment_type,Timepoint,prob_response,i,dias_bp,food,food_value_wt_cal_norm) %>% 
+    na.omit() %>% 
+    spread(key=food,value=food_value_wt_cal_norm)
+  temp_LME <- df_spread %>% 
+    filter(treatment_type=="Probiotic") %>%
+    LME_one_by_one_function(unique(met_syn_food_all_tps$food),i) %>% 
+    mutate(metsyn=i) %>% 
+    select(metsyn,xColName,correlation,pValue,pValueAdj)
+  metsyn_hw360_prob_LME <- bind_rows(metsyn_hw360_prob_LME,temp_LME)
+}
+
+metsyn_hw360_probR_LME <- data.frame(metsyn=c(),
+                               xColName=c(),
+                               correlation=c(),
+                               pValue=c(),
+                               pValueAdj=c())
+for(i in met_syn_params){
+  # i=met_syn_params[1]
+  df_spread <- met_syn_food_all_tps %>% 
+    select(Participant,treatment_type,Timepoint,prob_response,i,dias_bp,food,food_value_wt_cal_norm) %>% 
+    na.omit() %>% 
+    spread(key=food,value=food_value_wt_cal_norm)
+  temp_LME <- df_spread %>% 
+    filter(prob_response=="Responder") %>%
+    LME_one_by_one_function(unique(met_syn_food_all_tps$food),i) %>% 
+    mutate(metsyn=i) %>% 
+    select(metsyn,xColName,correlation,pValue,pValueAdj)
+  metsyn_hw360_probR_LME <- bind_rows(metsyn_hw360_probR_LME,temp_LME)
+}
+
+metsyn_hw360_probNR_LME <- data.frame(metsyn=c(),
+                               xColName=c(),
+                               correlation=c(),
+                               pValue=c(),
+                               pValueAdj=c())
+for(i in met_syn_params){
+  # i=met_syn_params[1]
+  df_spread <- met_syn_food_all_tps %>% 
+    select(Participant,treatment_type,Timepoint,prob_response,i,dias_bp,food,food_value_wt_cal_norm) %>% 
+    na.omit() %>% 
+    spread(key=food,value=food_value_wt_cal_norm)
+  temp_LME <- df_spread %>% 
+    filter(prob_response=="Non-responder") %>%
+    LME_one_by_one_function(unique(met_syn_food_all_tps$food),i) %>% 
+    mutate(metsyn=i) %>% 
+    select(metsyn,xColName,correlation,pValue,pValueAdj)
+  metsyn_hw360_probNR_LME <- bind_rows(metsyn_hw360_probNR_LME,temp_LME)
+}
+
+metsyn_hw360_plac_LME <- data.frame(metsyn=c(),
+                               xColName=c(),
+                               correlation=c(),
+                               pValue=c(),
+                               pValueAdj=c())
+for(i in met_syn_params){
+  # i=met_syn_params[1]
+  df_spread <- met_syn_food_all_tps %>% 
+    select(Participant,treatment_type,Timepoint,prob_response,i,dias_bp,food,food_value_wt_cal_norm) %>% 
+    na.omit() %>% 
+    spread(key=food,value=food_value_wt_cal_norm)
+  temp_LME <- df_spread %>% 
+    filter(treatment_type=="Placebo") %>%
+    LME_one_by_one_function(unique(met_syn_food_all_tps$food),i) %>% 
+    mutate(metsyn=i) %>% 
+    select(metsyn,xColName,correlation,pValue,pValueAdj)
+  metsyn_hw360_plac_LME <- bind_rows(metsyn_hw360_plac_LME,temp_LME)
+}
+
+
+# 
+# ggplot(met_syn_food_all_tps %>% filter(food=="Caffeine..mg."), aes(x=food_value_wt_cal_norm,y=insulin,colour=treatment_type))+
+#   geom_point()+
+#   geom_line(aes(group=Participant))+
+#   theme_bw()
+# 
+ggplot(met_syn_food_all_tps %>% filter(food=="Vitamin.D2..ergocalciferol...mcg."), aes(x=food_value_wt_cal_norm,y=triglycerides,colour=treatment_type))+
+  geom_point()+
+  geom_line(aes(group=Participant))+
+  theme_bw()
+# 
+# 
+# ggplot(trig_all_tps %>% filter(prob_response=="Responder"),aes(x=Retinol..mcg.,y=triglycerides,colour=prob_response))+
+#   geom_point()+
+#   geom_line(aes(group=Participant))+
+#   theme_bw()+
+#   scale_colour_manual(values=c("#2166ac"))+
+#   theme(text = element_text(size=18),legend.position = "none")+
+#   xlab("Retinol intake (mcg)")+
+#   ylab("Triglycerides")
+# ggsave(paste(save_figure_path,"trig_retinol_lineplot.pdf"),width=4.5,height=7)
+
+```
+
+```{r}
+metsyn_hw360_prob_LME_sigg <- metsyn_hw360_prob_LME %>% 
+  filter(pValueAdj<=0.051)
+
+met_syn_food_all_tps_probSigg <- met_syn_food_all_tps %>% 
+  filter(food %in% metsyn_hw360_prob_LME_sigg$xColName) %>% 
+  mutate(Timepoint=as.factor(Timepoint)) %>% 
+  filter(treatment_type=="Probiotic")
+
+met_syn_food_tp_avg_probSigg <- met_syn_food_all_tps_probSigg %>% 
+  # gather(key=metsyn,value=metsyn_value,WAIST_CM:glucose_ctru) %>% 
+  # filter(Timepoint %in% c(7:10)) %>%
+  group_by(Participant,Timepoint,treatment_type,prob_response,triglycerides,food) %>% 
+  dplyr::summarize(food_value_avg=mean(food_value_wt_cal_norm))
+
+ggplot(met_syn_food_all_tps_probSigg,aes(x=Timepoint,y=food_value_wt_cal_norm,fill=prob_response))+
+  facet_wrap(~food,scales="free")+
+  geom_boxplot()
+
+ggplot(met_syn_food_tp_avg_probSigg,aes(x=prob_response,y=food_value_avg,fill=prob_response))+
+  facet_wrap(~food,scales="free")+
+  geom_violin()
+
+ggplot(met_syn_food_tp_avg_probSigg,aes(x=food_value_avg,y=triglycerides,colour=prob_response))+
+  facet_wrap(~food,scales="free")+
+  geom_point(aes(shape=Timepoint))+
+  geom_line(aes(group=Participant))
+
+
+met_syn_all_gather <- met_syn_all %>% 
+  gather(key=metsyn,value=metsyn_value,WAIST_CM:glucose_ctru) %>%
+  mutate(Timepoint=as.factor(Timepoint),
+         prob_response=ifelse(treatment_type=="Placebo","Placebo",
+                              ifelse(Participant %in% prob_responders,"Responder","Non-responder")),
+         metsyn_value=as.numeric(metsyn_value)) %>% 
+  na.omit
+
+ggplot(met_syn_all_gather,aes(x=Timepoint,y=metsyn_value,fill=prob_response))+
+  geom_boxplot()+
+  theme_bw()+
+  facet_wrap(~metsyn,scales = "free")
+```
+
+
+
+```{r}
+ndsr_food_probiotic_spread_raw <- ndsr_food_spread %>% 
+  filter(treatment_type=="Probiotic") %>% 
+  ungroup %>% 
+  select(-c(Participant:Timepoint_label))
+
+#filter foods to those non-zero in at least x% of samples
+ndsr_food_names <- apply(ndsr_food_probiotic_spread_raw,2,function(X){sum(X>0,na.rm = T)>0.25*length(X)}) %>% #filter asvs to at least 10% of samples
+  as.data.frame %>% 
+  filter(.==TRUE) %>% 
+  rownames
+
+ndsr_int_probR <- ndsr_food %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Intervention" & (ndsr_food %in% ndsr_food_names)) %>% 
+  spread(key=ndsr_food,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+ndsr_int_probNR <- ndsr_food %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Intervention" & (ndsr_food %in% ndsr_food_names)) %>% 
+  spread(key=ndsr_food,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+
+df_in <- bind_rows(ndsr_int_probR,ndsr_int_probNR) %>% 
+  ungroup %>% 
+  select(-treatment_type)
+
+loocv_rf_int_ndsrfood <- df_in %>% 
+  loocv_rf_function()
+loocv_rf_results_int_ndsrfood <- loocv_rf_int_ndsrfood %>% 
+  loocv_results_dfs(.,"ndsrfood_int")
+
+loocv_rf_int_ndsrfood_sigg <- ndsr_food %>% 
+  filter(treatment_type=="Probiotic" & ndsr_food %in% loocv_rf_results_int_ndsrfood[[2]]$optVariables & Timepoint_label=="Intervention")
+
+ggplot(loocv_rf_int_ndsrfood_sigg,aes(x=prob_response,y=ndsr_value,fill=prob_response,color=prob_response))+
+  geom_violin(alpha=0.5,position="dodge")+
+  geom_jitter(aes(group=prob_response), position=position_jitterdodge(), alpha=0.9)+
+  scale_fill_manual(values=c("#b2182b","#2166ac"))+
+  scale_color_manual(values=c("#b2182b","#2166ac"))+
+  theme_bw() +
+  xlab("Probiotic Response Group")+
+  ylab("Serving Size at Week 10")+
+  theme(text = element_text(size=18))+
+  scale_x_discrete(breaks=c("Responder","Non-responder"),labels=c("R","NR"),name="Probiotic Response Group")+
+  facet_wrap(~ndsr_food,scales="free")
+#ggsave(paste(save_figure_path,"loocv_rfe_ndsr_food_groups.pdf"),width=8.6,height = 5.7)
+
+# t.test(filter(loocv_rf_int_ndsrfood_sigg,ndsr_food=="VEG0100" & prob_response=="Responder")$ndsr_value,filter(loocv_rf_int_ndsrfood_sigg,ndsr_food=="VEG0100" & prob_response=="Non-responder")$ndsr_value)
+```
+
+
+NDSR siggenes probiotic R vs. NR
+```{r}
+#ndsr nutrition data
+food_names <- var_function(ndsr_nutrients_spread,4)
+ndsr_nut_resp_int <- ndsr_nutrients %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Intervention" & !(ndsr_nut %in% food_names)) %>% 
+  spread(key=ndsr_nut,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+ndsr_nut_NONresp_int <- ndsr_nutrients %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Intervention" & !(ndsr_nut %in% food_names)) %>% 
+  spread(key=ndsr_nut,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(ndsr_nut_resp_int,ndsr_nut_NONresp_int,1,4)
+siggenes_input_cl <- unpairedYSAM(ndsr_nut_resp_int,ndsr_nut_NONresp_int)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+# siggenes_df <- summary(siggenes_output,0.773884)
+# siggenes_mat.sig <- siggenes_df@mat.sig %>%
+#   filter(q.value <= 0.1) %>%
+#   mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+#   select(Analyte,q.value)
+
+
+#ndsr food
+food_names <- var_function(ndsr_food_spread,4)
+ndsr_food_resp_int <- ndsr_food %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Intervention" & !(ndsr_food %in% food_names)) %>% 
+  spread(key=ndsr_food,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+ndsr_food_NONresp_int <- ndsr_food %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Intervention" & !(ndsr_food %in% food_names)) %>% 
+  spread(key=ndsr_food,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(ndsr_food_resp_int,ndsr_food_NONresp_int,1,4)
+siggenes_input_cl <- unpairedYSAM(ndsr_food_resp_int,ndsr_food_NONresp_int)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+siggenes_df <- summary(siggenes_output,delta_siggenes[2])
+siggenes_mat.sig <- siggenes_df@mat.sig %>%
+  filter(q.value <= 0.1) %>%
+  mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+  select(Analyte,q.value)
+```
+
+
+Unpaired ttest between responders and non responders during baseline
+```{r}
+#hw360 data
+food_names <- var_function(food_data_tp_chunk_spread,2)
+food_data_tp_chunk_resp_base <- food_data_tp_chunk %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Baseline" & food %in% food_names) %>% 
+  spread(key=food,value=food_norm_avg) %>% 
+  ungroup %>% 
+  na.omit
+food_data_tp_chunk_NONresp_base <- food_data_tp_chunk %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Baseline" & food %in% food_names) %>% 
+  spread(key=food,value=food_norm_avg) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(food_data_tp_chunk_resp_base,food_data_tp_chunk_NONresp_base,1,4)
+siggenes_input_cl <- unpairedYSAM(food_data_tp_chunk_resp_base,food_data_tp_chunk_NONresp_base)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+siggenes_df <- summary(siggenes_output,delta_siggenes[2])
+siggenes_mat.sig_hw360_base <- siggenes_df@mat.sig %>%
+  filter(q.value <= 0.1) %>%
+  mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+  select(Analyte,q.value)
+
+#ndsr nutrition data
+food_names <- var_function(ndsr_nutrients_spread,3)
+ndsr_nut_resp_base <- ndsr_nutrients %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Baseline" & ndsr_nut %in% food_names) %>% 
+  spread(key=ndsr_nut,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+ndsr_nut_NONresp_base <- ndsr_nutrients %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Baseline" & ndsr_nut %in% food_names) %>% 
+  spread(key=ndsr_nut,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(ndsr_nut_resp_base,ndsr_nut_NONresp_base,1,4)
+siggenes_input_cl <- unpairedYSAM(ndsr_nut_resp_base,ndsr_nut_NONresp_base)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+# siggenes_df <- summary(siggenes_output,0.773884)
+# siggenes_mat.sig <- siggenes_df@mat.sig %>%
+#   filter(q.value <= 0.1) %>%
+#   mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+#   select(Analyte,q.value)
+
+
+#ndsr food
+food_names <- var_function(ndsr_food_spread,3)
+ndsr_food_resp_base <- ndsr_food %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Baseline" & ndsr_food %in% food_names) %>% 
+  spread(key=ndsr_food,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+ndsr_food_NONresp_base <- ndsr_food %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Baseline" & ndsr_food %in% food_names) %>% 
+  spread(key=ndsr_food,value=ndsr_value) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(ndsr_food_resp_base,ndsr_food_NONresp_base,1,4)
+siggenes_input_cl <- unpairedYSAM(ndsr_food_resp_base,ndsr_food_NONresp_base)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+```
+
+
+Plot sig difference between responders and non responders from hw360 data
+```{r}
+food_data_tp_chunk_prob_resp_int_sigg <- food_data_tp_chunk %>% 
+  filter(prob_response %in% c("Responder","Non-responder") & Timepoint_label=="Intervention" & food %in% siggenes_mat.sig_hw360$Analyte)
+
+ggplot(food_data_tp_chunk_prob_resp_int_sigg,aes(x=prob_response,y=food_norm_avg,fill=prob_response))+
+  geom_boxplot()+
+  facet_wrap(~food,scales="free")
+
+
+food_data_tp_chunk_prob_resp_base_sigg <- food_data_tp_chunk %>% 
+  filter(prob_response %in% c("Responder","Non-responder") & Timepoint_label=="Baseline" & food %in% siggenes_mat.sig_hw360_base$Analyte)
+ggplot(food_data_tp_chunk_prob_resp_base_sigg,aes(x=prob_response,y=food_norm_avg,fill=prob_response))+
+  geom_boxplot()+
+  facet_wrap(~food,scales="free")
+
+```
+
+Normalize by calorie consumption
+```{r}
+#food intake/total calories
+food_chunk_temp <-  food_data %>% 
+  mutate(Timepoint_label=ifelse(Timepoint %in% c(1,2,3),"Baseline",
+                                ifelse(Timepoint %in% c(4:8),"Intervention","Washout"))) %>% 
+  group_by(Participant,treatment_type,prob_response,Timepoint_label,food) %>% 
+  dplyr::summarize(food_avg=mean(food_value,na.rm=TRUE)) 
+
+food_data_tp_chunk_cal_norm <- food_chunk_temp %>% 
+  filter(food=="Energy..kcal.") %>% 
+  spread(key=food,value=food_avg) %>% 
+  left_join(.,food_chunk_temp) %>% 
+  mutate(food_cal_norm_avg=food_avg/Energy..kcal.) %>% 
+  filter(food!="Energy..kcal.") %>% 
+  select(Participant,treatment_type,prob_response,Timepoint_label,food,food_cal_norm_avg)
+
+food_data_tp_chunk_cal_norm_spread <- food_data_tp_chunk_cal_norm %>% 
+  spread(key=food,value=food_cal_norm_avg) %>% 
+  ungroup %>% 
+  na.omit 
+```
+
+
+```{r}
+food_names <- var_function(food_data_tp_chunk_cal_norm_spread,2)
+food_data_cal_norm_tp_chunk_resp_int <- food_data_tp_chunk_cal_norm %>% 
+  filter(prob_response=="Responder" & Timepoint_label=="Intervention" & food %in% food_names) %>% 
+  spread(key=food,value=food_cal_norm_avg) %>% 
+  ungroup %>% 
+  na.omit
+food_data_cal_norm_tp_chunk_NONresp_int <- food_data_tp_chunk_cal_norm %>% 
+  filter(prob_response=="Non-responder" & Timepoint_label=="Intervention" & food %in% food_names) %>% 
+  spread(key=food,value=food_cal_norm_avg) %>% 
+  ungroup %>% 
+  na.omit
+
+set.seed(20)
+siggenes_input_data <- unpairedXSAM(food_data_cal_norm_tp_chunk_resp_int,food_data_cal_norm_tp_chunk_NONresp_int,1,4)
+siggenes_input_cl <- unpairedYSAM(food_data_cal_norm_tp_chunk_resp_int,food_data_cal_norm_tp_chunk_NONresp_int)
+siggenes_output <- siggenes::sam(data=siggenes_input_data,cl=siggenes_input_cl)
+summary(siggenes_output)
+delta_siggenes <- findDelta(siggenes_output, fdr = 0.05)
+# siggenes_df <- summary(siggenes_output,0.61721)
+# siggenes_mat.sig_hw360 <- siggenes_df@mat.sig %>%
+#   filter(q.value <= 0.1) %>%
+#   mutate(Analyte = rownames(siggenes_df@mat.sig)[c(1:dim(.)[1])]) %>%
+#   select(Analyte,q.value)
+```
+
+EN predicting probiotic R vs NR based on baseline food consumption
+-75-100% accuracy
+```{r}
+df_in <- bind_rows(food_data_tp_chunk_resp_base,food_data_tp_chunk_NONresp_base) %>% 
+  select(-Saccharin..mg.)
+# df_in <- bind_rows(ndsr_nut_resp_int,ndsr_nut_NONresp_int)
+
+df_EN_raw <- df_in %>% 
+  select(-Participant,-treatment_type,-Timepoint_label) %>% 
+  mutate(prob_response=as.factor(prob_response)) %>% 
+  mutate_if(is.numeric, scale)
+set.seed(200)
+trainIndex <- createDataPartition(df_EN_raw$prob_response, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% mutate_if(is.numeric, scale)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% mutate_if(is.numeric, scale)
+set.seed(20)
+enetFit <- train(prob_response ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN_prob_resp_base <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+all_df <- bind_rows(df_EN_train,df_EN_test)
+pred_df_all <- data.frame(actual=df_EN_raw$prob_response,
+                          predicted=predict(enetFit, newdata = all_df),
+                          index_num=c(1:dim(all_df)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+
+
+coefs_EN_prob_resp_base_lot <- coefs_EN_prob_resp_base %>%
+  mutate(log_coef=-log(abs(coef))*round(coef))
+
+ggplot(coefs_EN_prob_resp_base,aes(x=reorder(metab,-abs(coef)), y=coef, colour = sign,size = abs(coef))) +
+  geom_point()+
+  theme_bw()+
+  scale_colour_manual(values=c("#d95f02","#1b9e77"))+
+  # scale_colour_gradient2(low="red",mid="white",high="blue")+
+  scale_size(range = c(4, 10), name="Coefficient")+
+  xlab("Nutrition Intake")+
+  ylab("Elastic Net Coefficient")+
+  theme(text = element_text(size=17))+
+  coord_flip()
+#ggsave(paste(save_figure_path,"food_probiotic_R_NR_Elastic_net.pdf"),width=13,height = 6.7)
+
+df_in_sigg <- df_in %>% 
+  gather(key=food,value=food_value,-c(Participant:Timepoint_label)) %>% 
+  filter(food %in% coefs_EN_prob_resp_base$metab)
+
+ggplot(df_in_sigg,aes(x=prob_response,y=food_value,fill=prob_response))+
+  geom_boxplot()+
+  facet_wrap(~food,scales="free")
+```
+
+EN predicting probiotic R vs NR based on intervention food consumption
+-null model
+```{r}
+df_in <- bind_rows(food_data_tp_chunk_resp_int,food_data_tp_chunk_NONresp_int)
+# df_in <- bind_rows(ndsr_nut_resp_int,ndsr_nut_NONresp_int)
+
+df_EN_raw <- df_in %>% 
+  select(-Participant,-treatment_type,-Timepoint_label) %>% 
+  mutate(prob_response=as.factor(prob_response)) %>% 
+  mutate_if(is.numeric, scale)
+set.seed(200)
+trainIndex <- createDataPartition(df_EN_raw$prob_response, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(prob_response ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$prob_response,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+
+```
+Check to make sure baseline food consumption wasnt' different between Placebo and Probiotic
+-null model
+```{r}
+df_in <- food_data_tp_chunk %>% 
+  filter(Timepoint_label=="Baseline") %>% 
+  spread(key=food,value=food_norm_avg) %>% 
+  ungroup %>% 
+  na.omit %>% 
+  select(-Saccharin..mg.,-Formononetin..mg.)
+# df_in <- bind_rows(ndsr_nut_resp_int,ndsr_nut_NONresp_int)
+
+df_EN_raw <- df_in %>% 
+  select(-Participant,-prob_response,-Timepoint_label) %>% 
+  mutate(treatment_type=as.factor(treatment_type)) %>% 
+  mutate_if(is.numeric, scale)
+set.seed(200)
+trainIndex <- createDataPartition(df_EN_raw$treatment_type, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_EN_train <- df_EN_raw[ trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+df_EN_test  <- df_EN_raw[-trainIndex,] #%>% scale(center = TRUE, scale = TRUE)
+set.seed(20)
+enetFit <- train(treatment_type ~ .,
+                 data = df_EN_train,
+                 method = "glmnet",
+                 trControl=trainControl("LOOCV"),
+                 family = "binomial")
+
+coefs_matrix <- as.matrix(coef(enetFit$finalModel, enetFit$bestTune$lambda))
+coefs_EN <- data.frame(metab=rownames(coefs_matrix),coef=coefs_matrix) %>%
+  dplyr::rename(coef=X1) %>%
+  filter(coef!=0 & metab!="(Intercept)") %>% 
+  mutate(sign=coef>0)
+
+pred_df_all <- data.frame(actual=df_EN_raw$treatment_type,
+                          predicted=predict(enetFit, newdata = df_EN_raw),
+                          index_num=c(1:dim(df_EN_raw)[1]))
+pred_df_all$tt <- ifelse(pred_df_all$index_num %in% as.vector(trainIndex),"train","test")
+table(select(filter(pred_df_all,tt=="test"),actual,predicted))
+```
+
+
+
+
